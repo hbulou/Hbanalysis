@@ -215,7 +215,7 @@ contains
 
     allocate(dest%atoms(dest%n_atoms))
     allocate(dest%order_idx_save(dest%n_atoms))
-    msg(__LINE__), "dest%n_atoms=",dest%n_atoms,    allocated(dest%order_idx_save)
+    !msg(__LINE__), "dest%n_atoms=",dest%n_atoms,    allocated(dest%order_idx_save)
 
     do iat=1,dest%n_atoms
        dest%atoms(iat)=ATOM_copy(src%atoms(iat))

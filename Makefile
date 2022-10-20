@@ -12,7 +12,7 @@ FCOPT= -fimplicit-none -finit-local-zero  -fopenmp -finit-local-zero  -ffpe-trap
 
 SRC=analysis.f90
 
-OBJ= global.o Atom.o Cell.o Bond.o Configuration.o Element.o   Machine.o IO.o Molecule.o Univers.o tools.o scripts.o
+OBJ= global.o Atom.o Potential.o Kind.o  Cell.o Bond.o Configuration.o Element.o   Machine.o IO.o Molecule.o Univers.o tools.o scripts.o
 #all: $(OBJ) analysis.f90
 #	$(FC) $(FCOPT)  $(OBJ) analysis.f90  -o analysis.x  -lblas -llapack	
 
@@ -32,17 +32,21 @@ Element.o: Element.f90 global.o
 	$(FC) $(FCOPT) $< -c
 global.o: global.f90
 	$(FC) $(FCOPT) $< -c
-IO.o: IO.f90 Element.o global.o
+IO.o: IO.f90 Kind.o Element.o global.o
+	$(FC) $(FCOPT) $< -c
+Kind.o: Kind.f90 Potential.o global.o
 	$(FC) $(FCOPT) $< -c
 Machine.o: Machine.f90 global.o
 	$(FC) $(FCOPT) $< -c
 Molecule.o: Molecule.f90 Atom.o Element.o global.o
 	$(FC) $(FCOPT) $< -c
-Univers.o: Univers.f90 global.o 
+Potential.o: Potential.f90 global.o 
 	$(FC) $(FCOPT) $< -c
 tools.o: tools.f90 
 	$(FC) $(FCOPT) $< -c
 scripts.o: scripts.f90 global.o Molecule.o Univers.o Cell.o IO.o Atom.o
+	$(FC) $(FCOPT) $< -c
+Univers.o: Univers.f90 global.o 
 	$(FC) $(FCOPT) $< -c
 
 

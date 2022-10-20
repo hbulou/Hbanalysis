@@ -147,7 +147,286 @@ module global
      type(t_Configuration),allocatable::configurations(:)
   end type t_Univers
 
+
+
+  ! ----------------------------------------------
+  type t_CP2K_global
+     logical::state
+     character(len=32)::print_level
+     character(len=32)::project_name
+     character(len=32)::run_type
+  end type t_CP2K_global
+
+  
+  type t_CP2K_motion_constraint_fixed_atoms
+     character(len=3)::COMPONENTS_TO_FIX
+     integer::nrec
+     integer,allocatable::list(:)
+  end type t_CP2K_motion_constraint_fixed_atoms
+
+  type t_CP2K_motion_constraint
+     type(t_CP2K_motion_constraint_fixed_atoms)::fixed_atoms
+  end type t_CP2K_motion_constraint
+
+
+  
+  type t_CP2K_motion_geo_opt
+     integer::step_start_val
+  end type t_CP2K_motion_geo_opt
+
+  type t_CP2K_motion
+     type(t_CP2K_motion_geo_opt)::geo_opt
+     type(t_CP2K_motion_constraint)::constraint
+  end type t_CP2K_motion
+
+
+  type t_CP2K_ext_restart
+     logical::RESTART_FILE_NAME 
+     logical::RESTART_COUNTERS  
+     logical::RESTART_POS  
+     logical::RESTART_VEL  
+     logical::RESTART_RANDOMG  
+     logical::RESTART_SHELL_POS  
+     logical::RESTART_CORE_POS  
+     logical::RESTART_OPTIMIZE_INPUT_VARIABLES  
+     logical::RESTART_SHELL_VELOCITY  
+     logical::RESTART_CORE_VELOCITY  
+     logical::RESTART_BAROSTAT  
+     logical::RESTART_BAROSTAT_THERMOSTAT  
+     logical::RESTART_SHELL_THERMOSTAT  
+     logical::RESTART_THERMOSTAT  
+     logical::RESTART_CELL  
+     logical::RESTART_METADYNAMICS  
+     logical::RESTART_WALKERS  
+     logical::RESTART_BAND  
+     logical::RESTART_QMMM  
+     logical::RESTART_CONSTRAINT  
+     logical::RESTART_BSSE  
+     logical::RESTART_DIMER  
+     logical::RESTART_AVERAGES  
+     logical::RESTART_RTP  
+     logical::RESTART_PINT_POS  
+     logical::RESTART_PINT_VEL  
+     logical::RESTART_PINT_NOSE  
+     logical::RESTART_PINT_GLE  
+     logical::RESTART_HELIUM_POS  
+     logical::RESTART_HELIUM_PERMUTATION  
+     logical::RESTART_HELIUM_FORCE  
+     logical::RESTART_HELIUM_RNG  
+  end type t_CP2K_ext_restart
+
+  
+  type t_CP2K_force_eval_dft_scf_mixing
+     logical::state
+     character(len=32)::method
+     double precision::alpha
+     double precision::beta
+     integer::nbuffer
+  end type t_CP2K_force_eval_dft_scf_mixing
+  type t_CP2K_force_eval_dft_scf_smear
+     logical::state
+     character(len=32)::method
+     double precision::electronic_temp
+  end type t_CP2K_force_eval_dft_scf_smear
+   type t_CP2K_force_eval_dft_scf_diag
+     logical::state
+     character(len=32)::algo
+  end type t_CP2K_force_eval_dft_scf_diag
+  type t_CP2K_force_eval_dft_scf
+     integer::max_scf
+     double precision::eps_scf
+     character(len=32)::scf_guess
+     integer::added_mos
+     type(t_CP2K_force_eval_dft_scf_diag)::diag
+     type(t_CP2K_force_eval_dft_scf_smear)::smear
+     type(t_CP2K_force_eval_dft_scf_mixing)::mixing
+  end type t_CP2K_force_eval_dft_scf
+  type t_CP2K_force_eval_dft_qs
+     double precision::eps_default
+  end type t_CP2K_force_eval_dft_qs
+  type t_CP2K_force_eval_dft_mgrid
+     integer::ngrids
+     double precision::cutoff
+     double precision::rel_cutoff
+  end type t_CP2K_force_eval_dft_mgrid
+  type t_CP2K_force_eval_dft_poisson
+     character(len=32)::poisson_solver
+     character(len=32)::periodic
+  end type t_CP2K_force_eval_dft_poisson
+  type t_CP2K_force_eval_dft_rtp
+     character(len=32)::initial_wfn
+  end type t_CP2K_force_eval_dft_rtp
+
+
+  
+  type t_CP2K_force_eval_dft_xc_func
+     character(len=32)::racc
+     logical::PBE
+  end type t_CP2K_force_eval_dft_xc_func
+
+  type t_CP2K_force_eval_dft_xc
+     double precision::density_cutoff
+     double precision::gradient_cutoff
+     double precision::tau_cutoff
+     type(t_CP2K_force_eval_dft_xc_func)::xcfunc
+  end type t_CP2K_force_eval_dft_xc
+
+
+  type t_CP2K_force_eval_dft
+     logical::state
+     character(len=1024)::basis_set_file_name
+     character(len=1024)::potential_file_name
+     type(t_CP2K_force_eval_dft_scf)::scf
+     type(t_CP2K_force_eval_dft_qs)::qs
+     type(t_CP2K_force_eval_dft_mgrid)::mgrid
+     type(t_CP2K_force_eval_dft_poisson)::poisson
+     type(t_CP2K_force_eval_dft_rtp)::rtp
+     type(t_CP2K_force_eval_dft_xc)::xc
+  end type t_CP2K_force_eval_dft
+
+
+
+  type t_CP2K_force_eval_subsys_cell
+     logical::state
+     double precision::A(3),B(3),C(3)
+     character(len=3)::periodic
+     integer::multiple_unit_cell(3)
+  end type t_CP2K_force_eval_subsys_cell
+
+  type t_CP2K_force_eval_subsys_coord
+     logical::state
+     type(t_Molecule)::mol
+  end type t_CP2K_force_eval_subsys_coord
+
+
+  type t_CP2K_force_eval_subsys_topology
+     logical::state
+     integer::number_of_atoms,multiple_unit_cell(3)
+  end type t_CP2K_force_eval_subsys_topology
+
+  type t_GTH_Potential_non_local_projector
+     ! # r        : Radius of the non-local part for angular momentum quantum number l
+     ! #            defined by the Gaussian function exponents alpha_prj_ppnl
+     double precision::r
+     ! # nprj_ppnl: Number of the non-local projectors for the angular momentum
+     ! #            quantum number l
+     integer::nprj_ppnl
+     ! # hprj_ppnl: Coefficients of the non-local projector functions
+     double precision,allocatable::hprj_ppnl(:)
+  end type t_GTH_Potential_non_local_projector
+  type t_GTH_Potential
+     character(len=32)::name
+     ! # n_elec   : Number of electrons for each angular momentum quantum number
+     ! #            (electronic configuration -> s p d ...)
+     integer::n_type_elec
+     integer,allocatable::n_elec(:)
+     ! # r_loc    : Radius for the local part defined by the Gaussian function
+     ! #            exponent alpha_erf
+     double precision::r_loc
+     ! # nexp_ppl : Number of the local pseudopotential functions
+     integer::nexp_ppl
+     ! # cexp_ppl : Coefficients of the local pseudopotential functions
+     double precision,allocatable::cexp_ppl(:)
+     ! # nprj     : Number of the non-local projectors => nprj = SIZE(nprj_ppnl(:))
+     integer::nprj
+     type(t_GTH_Potential_non_local_projector),allocatable::nlprj(:)
+  end type t_GTH_Potential
+
+  ! C GTH-PBE-q4 GTH-PBE   --> [He] 2s2 2p2
+  !    2    2
+  !     0.33847124    2    -8.80367398     1.33921085
+  !    2
+  !     0.30257575    1     9.62248665
+  !     0.29150694    0
+
+  ! Ga GTH-BP-q13 GTH-BP   -->  	[Ar] 4s2 3d10 4p1
+  !   n_elec s   p
+  !     2    1   10
+  !     0.49000000    0
+  
+  !     3        
+  !     0.39614555    3    12.22933993    -7.15254431     2.02087227  --> 3<=> (3/2)*(3+1) (n/2)*(n+1)
+  !                                       12.52084398    -5.21786976      1 ->  2 ->  3 |   
+  !                                                       4.14155572        ->  4 ->  5 | stockage
+  !     0.57682875    2     1.65710194     0.27257669                             ->  6 |
+  !                                       -0.32251709
+  !     0.23837295    1   -16.19719645
+
+
+  
+  type t_Kind
+     character(len=2)::element
+     character(len=32)::basis_set
+     type(t_GTH_Potential)::potential
+  end type t_Kind
+
+
+  type t_CP2K_force_eval_subsys
+     logical::state
+     type(t_CP2K_force_eval_subsys_cell)::cell
+     type(t_CP2K_force_eval_subsys_coord)::coord
+     type(t_CP2K_force_eval_subsys_topology)::topology
+     integer::n_kinds
+     type(t_Kind),allocatable::kinds(:)
+  end type t_CP2K_force_eval_subsys
+
+  type t_CP2K_force_eval_print_forces
+     character(len=4)::state
+  end type t_CP2K_force_eval_print_forces
+
+  type t_CP2K_force_eval_print
+     logical::state
+     type(t_CP2K_force_eval_print_forces)::forces
+  end type t_CP2K_force_eval_print
+
+
+  type t_CP2K_force_eval
+     character(len=32)::method
+     type(t_CP2K_force_eval_dft)::dft
+     type(t_CP2K_force_eval_subsys)::subsys
+     type(t_CP2K_force_eval_print)::print
+  end type t_CP2K_force_eval
+
+
+  type t_CP2K_param
+     type(t_CP2K_global)::global
+     type(t_CP2K_motion)::motion
+     type(t_CP2K_force_eval)::force_eval
+     type(t_CP2K_ext_restart)::ext_restart
+  end type t_CP2K_param
+
+  ! ----------------------------------------------
+  ! ----------------------------------------------
+  ! ----------------------------------------------
+
+
+  
 contains
+  ! --------------------------------------------------------------------------------------
+  !
+  !              function to_upper(strIn) result(strOut)
+  !
+  ! --------------------------------------------------------------------------------------
+  function to_upper(strIn) result(strOut)
+    ! Adapted from http://www.star.le.ac.uk/~cgp/fortran.html (25 May 2012)
+    ! Original author: Clive Page
+    
+    implicit none
+    
+    character(len=*), intent(in) :: strIn
+    character(len=len(strIn)) :: strOut
+    integer :: i,j
+    
+    do i = 1, len(strIn)
+        j = iachar(strIn(i:i))
+        if (j>= iachar("a") .and. j<=iachar("z") ) then
+           strOut(i:i) = achar(iachar(strIn(i:i))-32)
+        else
+           strOut(i:i) = strIn(i:i)
+        end if
+     end do
+     
+   end function to_upper
   ! --------------------------------------------------------------------------------------
   !
   !              line_parser()

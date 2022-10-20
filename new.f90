@@ -53,6 +53,8 @@ program new
   ! les subroutines correspondant aux differents cas sont dans le fichier script.f90
   !
   select case(param%run_type)
+  case('test')
+     call test(param)
   case('concat')
      call concat(param)
   case('crystal')

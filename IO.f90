@@ -3,200 +3,249 @@ module IO
   implicit none
 contains
 #define msg(x) print *,"### ",x,__FILE__," > "
-!#define msg(x) print *,"### ",x,' ###    ',__FILE__," > "
+  !#define msg(x) print *,"### ",x,' ###    ',__FILE__," > "
 #define error(x) print *,"### ERROR ",x,__FILE__," > "
 #define debug(x,idx) print *,"### DEBUG ",idx," @ line ",x,__FILE__," > "
 
-  !  subroutine IO_read_parametrization_file(param)
-  !  subroutine IO_file_info(file)
-  !  subroutine lammps(cells)
-  !  subroutine lammpsold(filename,cell)
-  !  subroutine read_cp2k_input_file(file,cell)
-  !  subroutine IO_read_basis_set()
-  !  subroutine IO_read_file(file,univers)
-  !  subroutine IO_read_parametrization_file(param)
-  !  subroutine IO_read_molecule(file,molecule,idx_conf_to_read)
-  !  subroutine IO_read_molecule_from_cp2k_restart_file(file,molecule)
-  !  subroutine IO_read_molecule_from_xyz_file(file,molecule,idx_conf_to_read)
-  !  subroutine IO_read_cell_from_cp2k_restart_file(file,cell)
-  
-  !  subroutine IO_write(file,univ,iconf)
-  !  subroutine IO_write_CP2K_input_file(file,univ,iconf)
-  
-  !  subroutine QuantumEspresso(file,univ,iconf)
-  !  subroutine read_multixyz(file,univers)
-  !  subroutine save(filename,univers,idx_conf_to_save)
-  !  subroutine save_molecule(molecule)
-  !  subroutine xsf(filename,cell)
-  !  subroutine IO_write_cell_to_xyz(filename,cell)
+  ! grep -n subroutine IO.f90 | awk '{print "!",$0}' | grep -v end
+
+
+  !   41:  subroutine lammps(output,univ)
+  !  102:  subroutine lammpsold(filename,cell)
+  !  223:  subroutine IO_file_info(name,file)
+  !  281:  subroutine IO_read_cp2k_input_file(name,cell)
+  !  315:  subroutine IO_read_cell_from_cp2k_restart_file(param,input,cell)
+  !  490:  subroutine IO_read_cp2k_restart_file(filename,cp2k_param)
+  ! 1142:  subroutine IO_read_parametrization_file(param)
+  ! 1251:  subroutine IO_write(param,univ,iconf)
+  ! 1293:  subroutine IO_write_CP2K_input_file(param,univ,iconf,ioutput)
+  ! 1676:  subroutine IO_read_file(name,type_file,univers)
+  ! 1835:  subroutine QuantumEspresso(output,univ)
+  ! 1888:  subroutine read_multixyz(name,univers)
+  ! 1933:  subroutine save(filename,univers,idx_conf_to_save)
+  ! 1963:  subroutine save_molecule(mol)
+  ! 1996:  subroutine xsf(filename,cell)
+  ! 2032:  subroutine IO_write_cell_to_xyz(filename,cell)
 
   ! --------------------------------------------------------------------------------------
   !
-  !          subroutine IO_read_parametrization_file(param)
+  !              IO_save(cp2k_param)
   !
   ! --------------------------------------------------------------------------------------
-  subroutine IO_read_parametrization_file(param)
+  
+  subroutine IO_save(filename,cp2k_param)
     use global
     implicit none
-    type(t_Param)::param
-    character(len=256)::name
-    integer::io
-    character (len=1024)::line
-    character (len=NCHARFIELD)::field(32)
-    integer::nfield,i,j,k
-    logical::bool_input,bool_output,bool_machine
+    type(t_CP2K_param)::cp2k_param
+    integer::i,j,k,kk,l
+    character(len=1024)::filename
 
-    param%n_inputs=0
-    param%n_outputs=0
-    bool_input=.FALSE.
-    bool_output=.FALSE.
-    bool_machine=.FALSE.
-
-    !
-    ! cette partie permet de compter le nombre de blocs d'input & d'output
-    !
+    open(unit=1,file=filename,form='formatted')
+    write(1,*) " &GLOBAL"
+    write(1,*) "   PRINT_LEVEL  ",trim(cp2k_param%global%print_level)
+    write(1,*) "   PROJECT_NAME ",trim(cp2k_param%global%project_name)
+    write(1,*) "   RUN_TYPE  ",trim(cp2k_param%global%run_type)
+    write(1,*) " &END GLOBAL"
     
-    io=0
-    open(unit=1,file=param%filename,form='formatted')
-    do while(io.eq.0)
-       read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
-       if(nfield.gt.0) then
+    write(1,*) " &MOTION"
+    write(1,*) "   &GEO_OPT"
+    write(1,*) "     STEP_START_VAL  ",cp2k_param%motion%geo_opt%step_start_val
+    write(1,*) "   &END GEO_OPT"
+    write(1,*) "   &CONSTRAINT"
+    write(1,*) "     &FIXED_ATOMS"
+    write(1,*) "       COMPONENTS_TO_FIX  ",trim(cp2k_param%motion%constraint%fixed_atoms%COMPONENTS_TO_FIX)
+    write(1,*) "       LIST ",cp2k_param%motion%constraint%fixed_atoms%list
+    write(1,*) "     &END FIXED_ATOMS"
+    write(1,*) "   &END CONSTRAINT"
+    write(1,*) " &END MOTION"
 
-          if(field(1).eq."&run_type")         param%run_type=field(2)
-          if(field(1).eq."&system")           param%calculation%system=field(2)  
-          if(field(1).eq."&input")            bool_input=.TRUE.
-          if(field(1).eq."&end_input")        bool_input=.FALSE.
-          if(field(1).eq."&output")           bool_output=.TRUE.
-          if(field(1).eq."&end_output")       bool_output=.FALSE.
-          if(field(1).eq."&machine")          bool_machine=.TRUE.
-          if(field(1).eq."&end_machine")      bool_machine=.FALSE.
-          write(*,*) trim(line)
+    write(1,*) " &FORCE_EVAL"
+    write(1,*) "   METHOD  ",trim(cp2k_param%force_eval%method)
+    write(1,*) "   &DFT"
+    write(1,*) "     BASIS_SET_FILE_NAME ",trim(cp2k_param%force_eval%dft%basis_set_file_name)
+    write(1,*) "     POTENTIAL_FILE_NAME ",trim(cp2k_param%force_eval%dft%potential_file_name)
+    write(1,*) "     &SCF"
+    write(1,*) "       MAX_SCF  ",cp2k_param%force_eval%dft%scf%max_scf
+    write(1,*) "       EPS_SCF     ",cp2k_param%force_eval%dft%scf%eps_scf
+    write(1,*) "       SCF_GUESS  ",cp2k_param%force_eval%dft%scf%scf_guess
+    write(1,*) "       ADDED_MOS  ", cp2k_param%force_eval%dft%scf%added_mos
+    if(cp2k_param%force_eval%dft%scf%diag%state) then
+       write(1,*) "       &DIAGONALIZATION  T"
+    else
+       write(1,*) "       &DIAGONALIZATION  F"
+    end if
+    write(1,*) "         ALGORITHM  ", trim(cp2k_param%force_eval%dft%scf%diag%algo)
+    write(1,*) "       &END DIAGONALIZATION"
+    if(cp2k_param%force_eval%dft%scf%smear%state) then
+       write(1,*) "       &SMEAR  T"
+    else
+       write(1,*) "       &SMEAR  F"
+    end if
 
-          if((bool_input).and.(trim(field(1)).eq."&name"))     param%n_inputs=param%n_inputs+1
-          if((bool_output).and.(trim(field(1)).eq."&name"))     param%n_outputs=param%n_outputs+1
-          if((bool_machine).and.(trim(field(1)).eq."&name"))     param%machine=field(2)
-       end if
+    write(1,*) "         METHOD  ", trim(cp2k_param%force_eval%dft%scf%smear%method)
+    write(1,*) "         ELECTRONIC_TEMPERATURE     ",cp2k_param%force_eval%dft%scf%smear%electronic_temp
+    write(1,*) "       &END SMEAR"
+    
+    if(cp2k_param%force_eval%dft%scf%mixing%state) then
+       write(1,*) "       &MIXING  T" 
+    else
+       write(1,*) "       &MIXING  F" 
+    end if
+
+    write(1,*) "         METHOD  ",trim(cp2k_param%force_eval%dft%scf%mixing%method)
+    write(1,*) "         ALPHA   ",cp2k_param%force_eval%dft%scf%mixing%alpha
+    write(1,*) "         BETA    ",cp2k_param%force_eval%dft%scf%mixing%beta
+    write(1,*) "         NBUFFER ",cp2k_param%force_eval%dft%scf%mixing%nbuffer
+    write(1,*) "       &END MIXING"
+    
+    write(1,*) "     &END SCF"
+    
+    write(1,*) "     &QS"
+    write(1,*) "       EPS_DEFAULT     ",cp2k_param%force_eval%dft%qs%eps_default
+    write(1,*) "     &END QS"
+    
+    write(1,*) "     &MGRID"
+    write(1,*) "       NGRIDS  ",cp2k_param%force_eval%dft%mgrid%ngrids
+    write(1,*) "       CUTOFF     ",cp2k_param%force_eval%dft%mgrid%cutoff
+    write(1,*) "       REL_CUTOFF     ",cp2k_param%force_eval%dft%mgrid%rel_cutoff
+    write(1,*) "     &END MGRID"
+    
+    write(1,*) "     &XC"
+    write(1,*) "       DENSITY_CUTOFF     ",cp2k_param%force_eval%dft%xc%density_cutoff
+    write(1,*) "       GRADIENT_CUTOFF    ",cp2k_param%force_eval%dft%xc%gradient_cutoff
+    write(1,*) "       TAU_CUTOFF     ",cp2k_param%force_eval%dft%xc%tau_cutoff
+    write(1,*) "       &XC_FUNCTIONAL ",cp2k_param%force_eval%dft%xc%xcfunc%racc
+    if(cp2k_param%force_eval%dft%xc%xcfunc%PBE) then
+       write(1,*) "         &PBE  T"
+    else
+       write(1,*) "         &PBE  F"
+    end if
+    
+
+    write(1,*) "         &END PBE"
+    write(1,*) "       &END XC_FUNCTIONAL"
+    write(1,*) "     &END XC"
+    
+    write(1,*) "     &POISSON"
+    write(1,*) "       POISSON_SOLVER  ",trim(cp2k_param%force_eval%dft%poisson%poisson_solver)
+    write(1,*) "       PERIODIC  ",trim(cp2k_param%force_eval%dft%poisson%periodic)
+    write(1,*) "     &END POISSON"
+    
+    write(1,*) "     &REAL_TIME_PROPAGATION"
+    write(1,*) "       INITIAL_WFN  ",trim(cp2k_param%force_eval%dft%rtp%initial_wfn)
+    write(1,*) "     &END REAL_TIME_PROPAGATION"
+    
+    write(1,*) "   &END DFT"
+
+    
+    write(1,*) "   &SUBSYS"
+    write(1,*) "     &CELL"
+    write(1,*) "       A    ",cp2k_param%force_eval%subsys%cell%A
+    write(1,*) "       B    ",cp2k_param%force_eval%subsys%cell%B
+    write(1,*) "       C    ",cp2k_param%force_eval%subsys%cell%C
+    write(1,*) "       PERIODIC ",trim(cp2k_param%force_eval%subsys%cell%periodic)
+    write(1,*) "       MULTIPLE_UNIT_CELL  ",cp2k_param%force_eval%subsys%cell%multiple_unit_cell
+    write(1,*) "     &END CELL"
+    
+    write(1,*) "     &COORD"
+    do i=1,cp2k_param%force_eval%subsys%coord%mol%n_atoms
+       write(1,*) cp2k_param%force_eval%subsys%coord%mol%atoms(i)%elt,&
+            cp2k_param%force_eval%subsys%coord%mol%atoms(i)%q
     end do
+    write(1,*) "     &END COORD"
 
-    allocate(param%input(param%n_inputs))
-    allocate(param%output(param%n_outputs))
-
-    !
-    ! lecture des paramètres
-    !
-    
-    rewind(1)
-    j=0
-    k=0
-    io=0
-    do while(io.eq.0)
-       read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
-       if(nfield.gt.0) then
-          ! ----------------------------------------------------------------
-          if(field(1).eq."&input")  then
-             k=k+1
-             bool_input=.TRUE.
+    do i=1,cp2k_param%force_eval%subsys%n_kinds
+       write(1,*) "     &KIND ",trim(cp2k_param%force_eval%subsys%kinds(i)%element)
+       write(1,*) "       BASIS_SET ",trim(cp2k_param%force_eval%subsys%kinds(i)%basis_set)
+       write(1,*) "       ELEMENT ",trim(cp2k_param%force_eval%subsys%kinds(i)%element)
+       write(1,*) "       POTENTIAL ",trim(cp2k_param%force_eval%subsys%kinds(i)%potential%name)
+       write(1,*) "       &POTENTIAL"
+       
+       write(1,*) cp2k_param%force_eval%subsys%kinds(i)%potential%n_elec
+       !write(1,*) " 4 6 2"
+       write(1,*) cp2k_param%force_eval%subsys%kinds(i)%potential%r_loc,cp2k_param%force_eval%subsys%kinds(i)%potential%nexp_ppl,&
+            cp2k_param%force_eval%subsys%kinds(i)%potential%cexp_ppl
+       !write(1,*) "  0.3800000000000000E+00 2  0.8711442180000001E+01 -0.7002867699999999E+00"
+       write(1,*) cp2k_param%force_eval%subsys%kinds(i)%potential%nprj
+       !write(1,*) " 3"
+       do j=1,cp2k_param%force_eval%subsys%kinds(i)%potential%nprj
+          write(1,'(e24.12,i12,x)',advance='no') cp2k_param%force_eval%subsys%kinds(i)%potential%nlprj(j)%r,&
+               cp2k_param%force_eval%subsys%kinds(i)%potential%nlprj(j)%nprj_ppnl
+          if(cp2k_param%force_eval%subsys%kinds(i)%potential%nlprj(j)%nprj_ppnl.gt.0) then
+             kk=1
+             do k=cp2k_param%force_eval%subsys%kinds(i)%potential%nlprj(j)%nprj_ppnl,1,-1
+                do l=1,k
+                   write(1,'(x,e24.12)',advance="no") cp2k_param%force_eval%subsys%kinds(i)%potential%nlprj(j)%hprj_ppnl(kk)
+                   kk=kk+1
+                end do
+                write(1,*) " "
+             end do
+          else
+             write(1,*) " "
           end if
-          if(field(1).eq."&end_input")          bool_input=.FALSE.
-          if((bool_input).and.(trim(field(1)).eq."&name"))     then
-             param%input(k)%name=field(2)
-          end if
-          if((bool_input).and.(trim(field(1)).eq."&type"))     then
-             param%input(k)%type=field(2)
-          end if
-          if((bool_input).and.(trim(field(1)).eq."&config"))     then
-             read(field(2),*) param%input(k)%iconf
-          end if
-          ! ----------------------------------------------------------------
-          if(field(1).eq."&output")  then
-             j=j+1
-             bool_output=.TRUE.
-          end if
-          if(field(1).eq."&end_output")          bool_output=.FALSE.
-          if((bool_output).and.(trim(field(1)).eq."&name"))     then
-             param%output(j)%name=field(2)
-          end if
-          if((bool_output).and.(trim(field(1)).eq."&type"))     then
-             param%output(j)%type=field(2)
-          end if
-
-
           
-       end if
-    end do
-    close(1)
-
-    msg(__LINE__), " n_inputs= ",param%n_inputs
-    do i=1,param%n_inputs
-       msg(__LINE__), " input ",i,":",trim(param%input(i)%name)," (",trim(param%input(i)%type)," )"
-    end do
-
-    msg(__LINE__), " n_outpus= ",param%n_outputs
-    do i=1,param%n_outputs
-       msg(__LINE__), " output ",i,":",&
-            trim(param%output(i)%name)," (",trim(param%output(i)%type)," )"
-    end do
-
-  end subroutine IO_read_parametrization_file
-
-  ! --------------------------------------------------------------------------------------
-  !
-  !              IO_file_info()
-  !
-  ! --------------------------------------------------------------------------------------
-  subroutine IO_file_info(name,file)
-    implicit none
-    character(len=2048)::name
-    type(t_Param)::file
-    integer::io
-    character (len=1024)::line
-    character (len=NCHARFIELD)::field(32)
-    integer::nfield,i,j
-
-    io=0
-    file%n_lines=0
-    file%n_configurations=0
-    open(unit=1,file=name,form='formatted')
-
-
-    do while (io==0)
-       read(1,'(A)',iostat=io) line;       if(io.eq.-1) exit  ;file%n_lines=file%n_lines+1
-
-       call line_parser(line,nfield,field)
-       read(field(1),*) file%n_atoms                          ;file%n_lines=file%n_lines+1
-       read(1,'(A)',iostat=io) line;       if(io.eq.-1) exit  ;file%n_lines=file%n_lines+1
-       file%n_configurations=file%n_configurations+1
-       do i=1,file%n_atoms
-          read(1,'(A)',iostat=io) line;       if(io.eq.-1) exit  ;file%n_lines=file%n_lines+1
        end do
-    enddo
+       !write(1,*) "  0.3377707800000000E+00 2  0.2575263860000000E+01  0.3692970650000000E+01"
+       !write(1,*) " -0.4767604610000000E+01"
+       !write(1,*) "  0.2425313500000000E+00 2 -0.4630541230000000E+01  0.8870875020000000E+01"
+       !write(1,*) " -0.1049616087000000E+02"
+       !write(1,*) "  0.2433169400000000E+00 1 -0.9406652680000001E+01"
+       !write(1,*) "         # Potential name:  GTH-PBE-Q12  for symbol:  TI"
+       !write(1,*) "         # Potential read from the potential filename: /home2020/home/ipcms/bulou/src/cp2k/data//POTENTIAL"
 
-    print *,"# IO_file_info> File ",trim(name)
-    print *,"# IO_file_info> number of line(s)=",file%n_lines
-    print *,"# IO_file_info> number of atom(s)=",file%n_atoms
-    print *,"# IO_file_info> number of configurations=",file%n_configurations
+       write(1,*) "       &END POTENTIAL"
+       write(1,*) "     &END KIND"
+    end do
 
-    allocate(file%nrj(file%n_configurations))
-    rewind(1)
-    do i=1,file%n_configurations
-       read(1,'(A)',iostat=io) line
-       read(1,'(A)',iostat=io) line
-       call line_parser(line,nfield,field)
-       if(nfield>0) then
-          read(field(6),*) file%nrj(i)
-       end if
-       do j=1,file%n_atoms
-          read(1,'(A)',iostat=io) line
-       end do
-    end do
+    write(1,*) "     &TOPOLOGY"
+    write(1,*) "       NUMBER_OF_ATOMS  ",cp2k_param%force_eval%subsys%topology%number_of_atoms
+    write(1,*) "       MULTIPLE_UNIT_CELL ",cp2k_param%force_eval%subsys%topology%multiple_unit_cell
+    write(1,*) "     &END TOPOLOGY"
+    write(1,*) "   &END SUBSYS"
+
+    write(1,*) "   &PRINT"
+    write(1,*) "     &FORCES  ",trim(cp2k_param%force_eval%print%forces%state)
+    write(1,*) "     &END FORCES"
+    write(1,*) "   &END PRINT"
+
+    write(1,*) " &END FORCE_EVAL"
+    ! write(1,*) " &EXT_RESTART"
+    ! write(1,*) "   RESTART_FILE_NAME "
+    ! write(1,*) "   RESTART_COUNTERS  T"
+    ! write(1,*) "   RESTART_POS  T"
+    ! write(1,*) "   RESTART_VEL  T"
+    ! write(1,*) "   RESTART_RANDOMG  T"
+    ! write(1,*) "   RESTART_SHELL_POS  T"
+    ! write(1,*) "   RESTART_CORE_POS  T"
+    ! write(1,*) "   RESTART_OPTIMIZE_INPUT_VARIABLES  T"
+    ! write(1,*) "   RESTART_SHELL_VELOCITY  T"
+    ! write(1,*) "   RESTART_CORE_VELOCITY  T"
+    ! write(1,*) "   RESTART_BAROSTAT  T"
+    ! write(1,*) "   RESTART_BAROSTAT_THERMOSTAT  T"
+    ! write(1,*) "   RESTART_SHELL_THERMOSTAT  T"
+    ! write(1,*) "   RESTART_THERMOSTAT  T"
+    ! write(1,*) "   RESTART_CELL  T"
+    ! write(1,*) "   RESTART_METADYNAMICS  T"
+    ! write(1,*) "   RESTART_WALKERS  T"
+    ! write(1,*) "   RESTART_BAND  T"
+    ! write(1,*) "   RESTART_QMMM  T"
+    ! write(1,*) "   RESTART_CONSTRAINT  T"
+    ! write(1,*) "   RESTART_BSSE  T"
+    ! write(1,*) "   RESTART_DIMER  T"
+    ! write(1,*) "   RESTART_AVERAGES  T"
+    ! write(1,*) "   RESTART_RTP  T"
+    ! write(1,*) "   RESTART_PINT_POS  T"
+    ! write(1,*) "   RESTART_PINT_VEL  T"
+    ! write(1,*) "   RESTART_PINT_NOSE  T"
+    ! write(1,*) "   RESTART_PINT_GLE  T"
+    ! write(1,*) "   RESTART_HELIUM_POS  T"
+    ! write(1,*) "   RESTART_HELIUM_PERMUTATION  T"
+    ! write(1,*) "   RESTART_HELIUM_FORCE  T"
+    ! write(1,*) "   RESTART_HELIUM_RNG  T"
+    ! write(1,*) " &END EXT_RESTART"
     close(1)
-    open(unit=1,file="nrj.dat",form='formatted',status='unknown')
-    do i=1,file%n_configurations
-       write(1,*) i,file%nrj(i)
-    end do
-    close(1)
-    print *,"# IO_file_info> End of IO_file_info()"
-  end subroutine IO_file_info
+  end subroutine IO_save
+
   ! --------------------------------------------------------------------------------------
   !
   !              lammps()
@@ -223,7 +272,7 @@ contains
     write(1,'(I8,X,A)') univ%configurations(output%iconf)%cells%n_elements,"atom types"
 
     !write(1,*) univ%configurations(iconf)%cells%L(
-    
+
     write(1,*)    
     write(1,*) 'Atoms'
     write(1,*) ''
@@ -269,7 +318,7 @@ contains
     type(t_Cell)::cell
     character(len=1024)::filename,pref
     integer::idx
-    
+
     idx=scan(filename,".")
     pref=trim(filename(1:idx-1))//".input.lmp"
     !print *,trim(adjustl(pref))
@@ -376,15 +425,74 @@ contains
     write(1,*) '      1   1      2      1      3'
 
 
-    
+
     close(1)
   end subroutine lammpsold
+
+  ! --------------------------------------------------------------------------------------
+  !
+  !              IO_file_info()
+  !
+  ! --------------------------------------------------------------------------------------
+  subroutine IO_file_info(name,file)
+    implicit none
+    character(len=2048)::name
+    type(t_Param)::file
+    integer::io
+    character (len=1024)::line
+    character (len=NCHARFIELD)::field(32)
+    integer::nfield,i,j
+
+    io=0
+    file%n_lines=0
+    file%n_configurations=0
+    open(unit=1,file=name,form='formatted')
+    
+    
+    do while (io==0)
+       read(1,'(A)',iostat=io) line;       if(io.eq.-1) exit  ;file%n_lines=file%n_lines+1
+
+       call line_parser(line,nfield,field)
+       read(field(1),*) file%n_atoms                          ;file%n_lines=file%n_lines+1
+       read(1,'(A)',iostat=io) line;       if(io.eq.-1) exit  ;file%n_lines=file%n_lines+1
+       file%n_configurations=file%n_configurations+1
+       do i=1,file%n_atoms
+          read(1,'(A)',iostat=io) line;       if(io.eq.-1) exit  ;file%n_lines=file%n_lines+1
+       end do
+    enddo
+
+    print *,"# IO_file_info> File ",trim(name)
+    print *,"# IO_file_info> number of line(s)=",file%n_lines
+    print *,"# IO_file_info> number of atom(s)=",file%n_atoms
+    print *,"# IO_file_info> number of configurations=",file%n_configurations
+
+    allocate(file%nrj(file%n_configurations))
+    rewind(1)
+    do i=1,file%n_configurations
+       read(1,'(A)',iostat=io) line
+       read(1,'(A)',iostat=io) line
+       call line_parser(line,nfield,field)
+       if(nfield>0) then
+          read(field(6),*) file%nrj(i)
+       end if
+       do j=1,file%n_atoms
+          read(1,'(A)',iostat=io) line
+       end do
+    end do
+    close(1)
+    open(unit=1,file="nrj.dat",form='formatted',status='unknown')
+    do i=1,file%n_configurations
+       write(1,*) i,file%nrj(i)
+    end do
+    close(1)
+    print *,"# IO_file_info> End of IO_file_info()"
+  end subroutine IO_file_info
   ! --------------------------------------------------------------------------------------
   !
   !              read_cp2k_input_file()
   !
   ! --------------------------------------------------------------------------------------
-  subroutine read_cp2k_input_file(name,cell)
+  subroutine IO_read_cp2k_input_file(name,cell)
     implicit none
     !    type(t_Param)::file
     character(len=2048)::name
@@ -411,7 +519,7 @@ contains
     end do
     close(1)
 
-  end subroutine read_cp2k_input_file
+  end subroutine IO_read_cp2k_input_file
 
   ! --------------------------------------------------------------------------------------
   !
@@ -435,7 +543,7 @@ contains
     if(allocated(cell%molecules))    deallocate(cell%molecules)
     allocate(cell%molecules(1))
     cell%molecules(1)=MOLECULE_init()
-    
+
     io=0
     print *,"# Reading ",trim(input%name)
     open(unit=1,file=input%name,form='formatted')
@@ -481,14 +589,14 @@ contains
     end do
     print *,"# Number of atoms: ",cell%molecules(1)%n_atoms
     print *,"# Functional:", param%calculation%xc_functional
-    
 
 
 
 
 
 
-    
+
+
     if(allocated(cell%molecules(1)%atoms)) deallocate(cell%molecules(1)%atoms)
     allocate(cell%molecules(1)%atoms(cell%molecules(1)%n_atoms))
     REWIND (1, IOSTAT=IO)
@@ -562,8 +670,8 @@ contains
        end do
     end if
 
-    
-    
+
+
     REWIND (1, IOSTAT=IO)
     read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
     do while(.not.(field(1).eq."&CELL"))
@@ -578,7 +686,7 @@ contains
     end do
     read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
     read(field(2),'(A)') cell%periodicity
-    
+
     close(1)
 
 
@@ -586,10 +694,774 @@ contains
 
     cell%n_atoms=cell%molecules(1)%n_atoms
     cell%n_molecules=1
-    
+
   end subroutine IO_read_cell_from_cp2k_restart_file
+  ! --------------------------------------------------------------------------------------
+  !
+  !    subroutine IO_read_cp2k_restart_file(filename,cp2k_param)
+  !
+  ! --------------------------------------------------------------------------------------
+  subroutine IO_read_cp2k_restart_file(filename,cp2k_param)
+    use global
+    use Atom
+    use Molecule
+    use Kind
+    implicit none
+    type(t_CP2K_param)::cp2k_param
+    character(len=32)::filename
+    type(t_Atom)::atm
+    !
+    integer::nline,i,j,jrec,k,l,unit
+    !
+    integer::io
+    character (len=1024)::line
+    character (len=NCHARFIELD)::field(32)
+    integer::nfield
+    !logical::b_global
+    logical::b_force_eval,b_ext_restart
+    logical::b_motion,b_motion_geo_opt
+    logical::b_motion_constraint,b_motion_constraint_fixed_atoms
+    !logical::b_force_eval_dft
+    logical::b_force_eval_dft_scf,b_force_eval_dft_qs
+    logical::b_force_eval_dft_mgrid,b_force_eval_dft_xc,b_force_eval_dft_poisson
+    logical::b_force_eval_dft_rtp
+    logical::b_force_eval_dft_scf_diag
+    logical::b_force_eval_dft_scf_smear
+    logical::b_force_eval_dft_scf_mixing
+    type(t_Kind),allocatable::TMPKinds(:)
+    !logical::b_xc_functional,b_xc_pbe
+    unit=1
+    !b_xc_functional=.FALSE.
+    !b_xc_pbe=.FALSE.
+    cp2k_param%global%state=.FALSE.
+    cp2k_param%force_eval%dft%state=.FALSE.
+    cp2k_param%force_eval%print%state=.FALSE.
+    !cp2k_param%force_eval%print%forces%state=.FALSE.
+    cp2k_param%force_eval%subsys%state=.FALSE.
+    cp2k_param%force_eval%subsys%topology%state=.FALSE.
+    cp2k_param%force_eval%subsys%cell%state=.FALSE.
+    cp2k_param%force_eval%subsys%coord%state=.FALSE.
+    cp2k_param%force_eval%subsys%coord%mol=MOLECULE_init()
+
+    b_motion=.FALSE.
+    b_motion_geo_opt=.FALSE.
+    b_motion_constraint=.FALSE.
+    b_motion_constraint_fixed_atoms=.FALSE.
+    b_force_eval=.FALSE.
+    !b_force_eval_dft=.FALSE.
+    b_force_eval_dft_scf=.FALSE.
+    b_force_eval_dft_qs=.FALSE.
+    b_force_eval_dft_mgrid=.FALSE.
+    b_force_eval_dft_xc=.FALSE.
+    b_force_eval_dft_poisson=.FALSE.
+    b_force_eval_dft_xc=.FALSE.
+    b_force_eval_dft_rtp=.FALSE.
+    cp2k_param%force_eval%dft%scf%diag%state=.FALSE.     
+    b_force_eval_dft_scf_diag=.FALSE.
+    cp2k_param%force_eval%dft%scf%smear%state=.FALSE.     
+    b_force_eval_dft_scf_smear=.FALSE.
+    cp2k_param%force_eval%dft%scf%mixing%state=.FALSE.     
+    b_force_eval_dft_scf_mixing=.FALSE.
+
+    b_ext_restart=.FALSE.
+    cp2k_param%force_eval%subsys%n_kinds=0     
+
+    msg(__LINE__), "Reading ",filename
+    !open(unit=1,file=filename,form='formatted')
+    !io=0
+    !cp2k_param%force_eval%subsys%n_kinds=0
+    !do while(io.eq.0)
+    !   read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+    !   if(to_upper(field(1)).eq."&KIND") &
+    !   cp2k_param%force_eval%subsys%n_kinds=cp2k_param%force_eval%subsys%n_kinds+1
+    !end do
+    !msg(__LINE__), " Number of different kind(s): ",cp2k_param%force_eval%subsys%n_kinds
+    !msg(__LINE__), " Allocating  ",cp2k_param%force_eval%subsys%n_kinds, " PseudoPotential(s)"
+    !allocate(cp2k_param%force_eval%subsys%kinds(cp2k_param%force_eval%subsys%n_kinds))
+    !rewind(1)
+
+    io=0
+    open(unit=1,file=filename,form='formatted')
+    do while(io.eq.0)
+       read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+       if(nfield.gt.0) then
+          !
+          ! GLOBAL PART
+          !
+          if(to_upper(field(1)).eq."&GLOBAL")          cp2k_param%global%state=.TRUE.
+          !
+          ! MOTION PART
+          !
+          if(to_upper(field(1)).eq."&MOTION")              b_motion=.TRUE.
+          if(b_motion) then
+             if(to_upper(field(1)).eq."&GEO_OPT")             b_motion_geo_opt=.TRUE.
+             if(to_upper(field(1)).eq."&CONSTRAINT")          b_motion_constraint=.TRUE.
+             if(b_motion_constraint) then
+                if(to_upper(field(1)).eq."&FIXED_ATOMS")         b_motion_constraint_fixed_atoms=.TRUE.
+             end if
+          end if
+          !
+          ! FORCE EVAL PART
+          !
+          if(to_upper(field(1)).eq."&FORCE_EVAL")          b_force_eval=.TRUE.
+          if(b_force_eval) then
+
+             if(to_upper(field(1)).eq."&SUBSYS") cp2k_param%force_eval%subsys%state=.TRUE.
+             if(to_upper(field(1)).eq."&PRINT") cp2k_param%force_eval%print%state=.TRUE.
+
+             if(cp2k_param%force_eval%subsys%state) then
+                if(to_upper(field(1)).eq."&TOPOLOGY") cp2k_param%force_eval%subsys%topology%state=.TRUE.
+                if(to_upper(field(1)).eq."&CELL")     cp2k_param%force_eval%subsys%cell%state=.TRUE.
+                if(to_upper(field(1)).eq."&COORD")    cp2k_param%force_eval%subsys%coord%state=.TRUE.
+             end if
+
+             !if(cp2k_param%force_eval%print%state) then
+             !   if(to_upper(field(1)).eq."&FORCES") cp2k_param%force_eval%print%forces%state=.TRUE.
+             !end if
 
 
+             if(to_upper(field(1)).eq."&DFT") cp2k_param%force_eval%dft%state=.TRUE.
+             if(cp2k_param%force_eval%dft%state) then
+                if(to_upper(field(1)).eq."&SCF")          b_force_eval_dft_scf=.TRUE.
+                if(b_force_eval_dft_scf) then
+                   if(to_upper(field(1)).eq."&DIAGONALIZATION") then
+                      b_force_eval_dft_scf_diag=.TRUE.
+                      if(to_upper(field(2)).eq."T")  then
+                         cp2k_param%force_eval%dft%scf%diag%state=.TRUE.
+                      else
+                         cp2k_param%force_eval%dft%scf%diag%state=.FALSE.
+                      end if
+                   end if
+                   if(to_upper(field(1)).eq."&SMEAR") then
+                      b_force_eval_dft_scf_smear=.TRUE.
+                      if(to_upper(field(2)).eq."T")  then
+                         cp2k_param%force_eval%dft%scf%smear%state=.TRUE.
+                      else
+                         cp2k_param%force_eval%dft%scf%smear%state=.FALSE.
+                      end if
+                   end if ! smear
+                   if(to_upper(field(1)).eq."&MIXING") then
+                      b_force_eval_dft_scf_mixing=.TRUE.
+                      if(to_upper(field(2)).eq."T")  then
+                         cp2k_param%force_eval%dft%scf%mixing%state=.TRUE.
+                      else
+                         cp2k_param%force_eval%dft%scf%mixing%state=.FALSE.
+                      end if
+                   end if ! mixing
+                end if
+             end if
+             if(cp2k_param%force_eval%dft%state) then
+                if(to_upper(field(1)).eq."&QS")          b_force_eval_dft_qs=.TRUE.
+                if(to_upper(field(1)).eq."&MGRID")          b_force_eval_dft_mgrid=.TRUE.
+                if(to_upper(field(1)).eq."&XC")          b_force_eval_dft_xc=.TRUE.
+                if(to_upper(field(1)).eq."&POISSON")          b_force_eval_dft_poisson=.TRUE.
+                if(to_upper(field(1)).eq."&XC")          b_force_eval_dft_xc=.TRUE.
+                if(to_upper(field(1)).eq."&REAL_TIME_PROPAGATION")          b_force_eval_dft_rtp=.TRUE.
+             end if
+          end if
+          !
+          ! EXT RESTART PART
+          !
+          if(to_upper(field(1)).eq."&EXT_RESTART")          b_ext_restart=.TRUE.
+
+          !
+          !
+          !
+
+          if(nfield.ge.2)  then
+
+             if(cp2k_param%global%state) then
+                if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."GLOBAL"))      cp2k_param%global%state=.FALSE.
+             end if
+
+             if(b_motion) then
+                if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."MOTION"))          b_motion=.FALSE.
+                if(b_motion_geo_opt) then
+                   if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."GEO_OPT"))         b_motion_geo_opt=.FALSE.
+                end if
+                if(b_motion_constraint) then
+                   if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."CONSTRAINT"))      b_motion_constraint=.FALSE.
+                   if(b_motion_constraint_fixed_atoms) then
+                      if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."FIXED_ATOMS"))      &
+                           b_motion_constraint_fixed_atoms=.FALSE.
+                   end if
+                end if
+             end if
+
+             if(b_force_eval) then
+                if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."FORCE_EVAL"))       b_force_eval=.FALSE.
+                if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."PRINT")) cp2k_param%force_eval%print%state=.FALSE.
+                if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."SUBSYS")) cp2k_param%force_eval%subsys%state=.FALSE.
+                if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."DFT")) cp2k_param%force_eval%dft%state=.FALSE.
+                if(cp2k_param%force_eval%subsys%state) then
+                   if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."TOPOLOGY")) &
+                        cp2k_param%force_eval%subsys%topology%state=.FALSE.
+                   if(cp2k_param%force_eval%subsys%cell%state) then
+                      if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."CELL"))&
+                           cp2k_param%force_eval%subsys%cell%state=.FALSE.
+                   end if
+                   if(cp2k_param%force_eval%subsys%coord%state) then
+                      if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."COORD"))&
+                           cp2k_param%force_eval%subsys%coord%state=.FALSE.
+                   end if
+                end if
+                !if(cp2k_param%force_eval%print%state) then
+                !   if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."FORCES")) &
+                !        cp2k_param%force_eval%print%forces%state=.FALSE.
+                !end if
+                if(cp2k_param%force_eval%dft%state) then
+                   if(b_force_eval_dft_scf) then
+                      if(b_force_eval_dft_scf_diag) then
+                         if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."DIAGONALIZATION"))&
+                              b_force_eval_dft_scf_diag=.FALSE.
+                      end if
+                      if(b_force_eval_dft_scf_smear) then
+                         if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."SMEAR"))&
+                              b_force_eval_dft_scf_smear=.FALSE.
+                      end if
+                      if(b_force_eval_dft_scf_mixing) then
+                         if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."MIXING"))&
+                              b_force_eval_dft_scf_mixing=.FALSE.
+                      end if
+                      if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."SCF"))       b_force_eval_dft_scf=.FALSE.
+                   end if
+                   if(b_force_eval_dft_qs) then
+                      if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."QS"))       b_force_eval_dft_qs=.FALSE.
+                   end if
+                   if(b_force_eval_dft_mgrid) then
+                      if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."MGRID"))       b_force_eval_dft_mgrid=.FALSE.
+                   end if
+                   if(b_force_eval_dft_xc) then
+                      if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."XC"))       b_force_eval_dft_xc=.FALSE.
+                   end if
+                   if(b_force_eval_dft_poisson) then
+                      if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."POISSON"))&
+                           b_force_eval_dft_poisson=.FALSE.
+                   end if
+                   if(b_force_eval_dft_xc) then
+                      if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."XC"))&
+                           b_force_eval_dft_xc=.FALSE.
+                   end if
+                   if(b_force_eval_dft_rtp) then
+                      if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."REAL_TIME_PROPAGATION"))&
+                           b_force_eval_dft_rtp=.FALSE.
+                   end if
+
+                end if
+             end if
+
+             if(b_ext_restart) then
+                if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."EXT_RESTART"))      b_ext_restart=.FALSE.
+             end if
+          end if ! nfield.ge.2
+          !
+          ! FORCE_EVAL
+          !
+          if(b_force_eval) then
+             if((trim(to_upper(field(1))).eq."METHOD").and.(.not.b_force_eval_dft_scf_smear)&
+                  .and.(.not.b_force_eval_dft_scf_mixing))     then
+                cp2k_param%force_eval%method=field(2)
+                msg(__LINE__),"FORCE EVAL > METHOD >  ",cp2k_param%force_eval%method
+             end if
+
+
+
+             !
+             ! FORCE_EVAL > PRINT
+             !
+             if(cp2k_param%force_eval%print%state) then
+                if(trim(to_upper(field(1))).eq."&FORCES")     then
+                   cp2k_param%force_eval%print%forces%state=field(2)
+                   msg(__LINE__),"FORCE EVAL > PRINT > FORCES >  ",&
+                        cp2k_param%force_eval%print%forces%state
+                end if
+             end if
+             !
+             ! FORCE_EVAL > SUBSYS
+             !
+             if(cp2k_param%force_eval%subsys%state) then
+                if(trim(to_upper(field(1))).eq."&KIND")     then
+                   msg(__LINE__), " Number of différent kind(s): ", cp2k_param%force_eval%subsys%n_kinds
+
+                   if(cp2k_param%force_eval%subsys%n_kinds.eq.0) then
+                      allocate(cp2k_param%force_eval%subsys%kinds(1))
+                   else ! if(cp2k_param%force_eval%subsys%n_kinds.eq.0) then
+                      allocate(TMPkinds(cp2k_param%force_eval%subsys%n_kinds))
+                      do i=1,cp2k_param%force_eval%subsys%n_kinds
+                         TMPkinds(i)=KIND_copy(cp2k_param%force_eval%subsys%kinds(i))
+                      end do
+                      deallocate(cp2k_param%force_eval%subsys%kinds)
+                      allocate(cp2k_param%force_eval%subsys%kinds(cp2k_param%force_eval%subsys%n_kinds+1))
+                      do i=1,cp2k_param%force_eval%subsys%n_kinds
+                         cp2k_param%force_eval%subsys%kinds(i)=KIND_copy(TMPkinds(i))
+                      end do
+                      deallocate(TMPkinds)
+                   end if ! if(cp2k_param%force_eval%subsys%n_kinds.eq.0) then
+                   cp2k_param%force_eval%subsys%kinds(cp2k_param%force_eval%subsys%n_kinds+1)=&
+                        KIND_read_potential_from_cp2k_restart_file(unit,field)
+                   cp2k_param%force_eval%subsys%n_kinds=cp2k_param%force_eval%subsys%n_kinds+1
+
+                end if
+                !
+                ! TOPOLOGY
+                !
+                if(cp2k_param%force_eval%subsys%topology%state) then
+                   if(trim(to_upper(field(1))).eq."MULTIPLE_UNIT_CELL")     then
+                      do i=1,3
+                         read(field(1+i),*) cp2k_param%force_eval%subsys%topology%multiple_unit_cell(i)
+                      end do
+                      msg(__LINE__),"FORCE EVAL > SUBSYS > TOPOLOGY  > MULTIPLE UNIT CELL > ",&
+                           cp2k_param%force_eval%subsys%topology%multiple_unit_cell
+                   end if
+                   if(trim(to_upper(field(1))).eq."NUMBER_OF_ATOMS")     then
+                      read(field(2),*) cp2k_param%force_eval%subsys%topology%number_of_atoms
+                      msg(__LINE__),"FORCE EVAL > SUBSYS > TOPOLOGY  > NUMBER OF ATOMS > ",&
+                           cp2k_param%force_eval%subsys%topology%number_of_atoms
+                   end if
+                end if
+                !
+                ! COORD
+                !
+                if(cp2k_param%force_eval%subsys%coord%state) then
+                   if(nfield.ge.4) then
+                      !msg(__LINE__), "--- ",trim(line)
+                      atm=ATOM_new()
+                      atm%elt=field(1)
+                      do i=1,3
+                         read(field(1+i),*) atm%q(i)
+                      end do
+                      call MOLECULE_add_atom(cp2k_param%force_eval%subsys%coord%mol,atm)
+                      call ATOM_del(atm)
+                      msg(__LINE__), "n_atoms= ",cp2k_param%force_eval%subsys%coord%mol%n_atoms,&
+                           " -> ",&
+                           cp2k_param%force_eval%subsys%coord%mol%atoms(cp2k_param%force_eval%subsys%coord%mol%n_atoms)%elt,&
+                           cp2k_param%force_eval%subsys%coord%mol%atoms(cp2k_param%force_eval%subsys%coord%mol%n_atoms)%q
+                   end if
+                end if
+                if(cp2k_param%force_eval%subsys%cell%state) then
+
+                   if(trim(to_upper(field(1))).eq."A")     then
+                      do i=1,3
+                         read(field(1+i),*) cp2k_param%force_eval%subsys%cell%A(i)
+                      end do
+                      msg(__LINE__),"FORCE EVAL > SUBSYS >  CELL > A > ",&
+                           cp2k_param%force_eval%subsys%cell%A
+                   end if
+                   if(trim(to_upper(field(1))).eq."B")     then
+                      do i=1,3
+                         read(field(1+i),*) cp2k_param%force_eval%subsys%cell%B(i)
+                      end do
+                      msg(__LINE__),"FORCE EVAL > SUBSYS >  CELL > B > ",&
+                           cp2k_param%force_eval%subsys%cell%B
+                   end if
+                   if(trim(to_upper(field(1))).eq."C")     then
+                      do i=1,3
+                         read(field(1+i),*) cp2k_param%force_eval%subsys%cell%C(i)
+                      end do
+                      msg(__LINE__),"FORCE EVAL > SUBSYS >  CELL > C > ",&
+                           cp2k_param%force_eval%subsys%cell%C
+                   end if
+                   if(trim(to_upper(field(1))).eq."MULTIPLE_UNIT_CELL")     then
+                      do i=1,3
+                         read(field(1+i),*) cp2k_param%force_eval%subsys%cell%multiple_unit_cell(i)
+                      end do
+                      msg(__LINE__),"FORCE EVAL > SUBSYS >  CELL > MULTIPLE UNIT CELL > ",&
+                           cp2k_param%force_eval%subsys%cell%multiple_unit_cell
+                   end if
+
+                   if(trim(to_upper(field(1))).eq."PERIODIC")     then
+                      cp2k_param%force_eval%subsys%cell%periodic=trim(field(2))
+                      msg(__LINE__),"FORCE EVAL > SUBSYS >  CELL > PERIODIC > ",&
+                           trim(cp2k_param%force_eval%subsys%cell%periodic)
+                   end if
+                end if
+             end if
+             !
+             ! FORCE_EVAL > DFT
+             !
+             if(cp2k_param%force_eval%dft%state) then
+                if(trim(to_upper(field(1))).eq."BASIS_SET_FILE_NAME")     then
+                   cp2k_param%force_eval%dft%basis_set_file_name=trim(field(2))
+                   msg(__LINE__),"FORCE EVAL > DFT >  BASIS SET FILE NAME >",&
+                        trim(cp2k_param%force_eval%dft%basis_set_file_name)
+                end if
+                if(trim(to_upper(field(1))).eq."POTENTIAL_FILE_NAME")     then
+                   cp2k_param%force_eval%dft%potential_file_name=trim(field(2))
+                   msg(__LINE__),"FORCE EVAL > DFT >  POTENTIEL FILE NAME >",&
+                        trim(cp2k_param%force_eval%dft%potential_file_name)
+                end if
+                if(b_force_eval_dft_mgrid) then
+                   if(trim(to_upper(field(1))).eq."NGRIDS")     then
+                      read(field(2),*) cp2k_param%force_eval%dft%mgrid%ngrids
+                      msg(__LINE__),"FORCE EVAL > DFT >  MGRID > NGRIDS > ",&
+                           cp2k_param%force_eval%dft%mgrid%ngrids
+                   end if
+                   if(trim(to_upper(field(1))).eq."CUTOFF")     then
+                      read(field(2),*) cp2k_param%force_eval%dft%mgrid%cutoff
+                      msg(__LINE__),"FORCE EVAL > DFT >  MGRID > CUTOFF > ",&
+                           cp2k_param%force_eval%dft%mgrid%cutoff
+                   end if
+                   if(trim(to_upper(field(1))).eq."REL_CUTOFF")     then
+                      read(field(2),*) cp2k_param%force_eval%dft%mgrid%rel_cutoff
+                      msg(__LINE__),"FORCE EVAL > DFT >  MGRID > REL_CUTOFF > ",&
+                           cp2k_param%force_eval%dft%mgrid%rel_cutoff
+                   end if
+
+                end if
+                if(b_force_eval_dft_qs) then
+                   if(trim(to_upper(field(1))).eq."EPS_DEFAULT")     then
+                      read(field(2),*) cp2k_param%force_eval%dft%qs%eps_default
+                      msg(__LINE__),"FORCE EVAL > DFT >  QS > ESP DEFAULT > ",&
+                           cp2k_param%force_eval%dft%qs%eps_default
+                   end if
+                end if
+                if(b_force_eval_dft_xc) then
+                   if(trim(to_upper(field(1))).eq."DENSITY_CUTOFF")     then
+                      read(field(2) ,*) cp2k_param%force_eval%dft%xc%density_cutoff
+                      msg(__LINE__),"FORCE EVAL > DFT >  XC > DENSITY CUTOFF > ",&
+                           cp2k_param%force_eval%dft%xc%density_cutoff
+                   end if
+                   if(trim(to_upper(field(1))).eq."GRADIENT_CUTOFF")     then
+                      read(field(2) ,*) cp2k_param%force_eval%dft%xc%gradient_cutoff
+                      msg(__LINE__),"FORCE EVAL > DFT >  XC > GRADIENT CUTOFF > ",&
+                           cp2k_param%force_eval%dft%xc%gradient_cutoff
+                   end if
+                   if(trim(to_upper(field(1))).eq."TAU_CUTOFF")     then
+                      read(field(2) ,*) cp2k_param%force_eval%dft%xc%tau_cutoff
+                      msg(__LINE__),"FORCE EVAL > DFT >  XC > TAU CUTOFF > ",&
+                           cp2k_param%force_eval%dft%xc%tau_cutoff
+                   end if
+                   if(trim(to_upper(field(1))).eq."&XC_FUNCTIONAL")     then
+                      cp2k_param%force_eval%dft%xc%xcfunc%racc=trim(field(2))
+                      msg(__LINE__),"FORCE EVAL > DFT >  XC > FUNCTIONAL > ",&
+                           cp2k_param%force_eval%dft%xc%xcfunc%racc
+                   end if
+                   if(trim(to_upper(field(1))).eq."&PBE")     then
+                      if(trim(to_upper(field(2))).eq."T")     then
+                         cp2k_param%force_eval%dft%xc%xcfunc%PBE=.TRUE.
+                      else
+                         cp2k_param%force_eval%dft%xc%xcfunc%PBE=.FALSE.
+                      end if
+
+                      msg(__LINE__),"FORCE EVAL > DFT >  XC > FUNCTIONAL > PBE >",&
+                           cp2k_param%force_eval%dft%xc%xcfunc%PBE
+                   end if
+                   !if(trim(to_upper(field(1))).eq."PERIODIC")     then
+                   !   cp2k_param%force_eval%dft%poisson%periodic=trim(field(2)) 
+                   !   msg(__LINE__),"FORCE EVAL > DFT >  POISSON > PERIODIC > ",&
+                   !        cp2k_param%force_eval%dft%poisson%periodic
+                   !end if
+                end if
+                if(b_force_eval_dft_poisson) then
+                   if(trim(to_upper(field(1))).eq."POISSON_SOLVER")     then
+                      cp2k_param%force_eval%dft%poisson%poisson_solver=trim(field(2)) 
+                      msg(__LINE__),"FORCE EVAL > DFT >  POISSON > SOLVER > ",&
+                           cp2k_param%force_eval%dft%poisson%poisson_solver
+                   end if
+                   if(trim(to_upper(field(1))).eq."PERIODIC")     then
+                      cp2k_param%force_eval%dft%poisson%periodic=trim(field(2)) 
+                      msg(__LINE__),"FORCE EVAL > DFT >  POISSON > PERIODIC > ",&
+                           cp2k_param%force_eval%dft%poisson%periodic
+                   end if
+                end if
+                if(b_force_eval_dft_rtp) then
+                   if(trim(to_upper(field(1))).eq."INITIAL_WFN")     then
+                      cp2k_param%force_eval%dft%rtp%initial_wfn=trim(field(2)) 
+                      msg(__LINE__),"FORCE EVAL > DFT >  RTP > INITIAL WFN > ",&
+                           cp2k_param%force_eval%dft%rtp%initial_wfn
+                   end if
+                end if
+                if(b_force_eval_dft_scf) then
+                   if(trim(to_upper(field(1))).eq."MAX_SCF")     then
+                      read(field(2),*) cp2k_param%force_eval%dft%scf%max_scf
+                      msg(__LINE__),"FORCE EVAL > DFT >  SCF > MAX SCF > ",&
+                           cp2k_param%force_eval%dft%scf%max_scf
+                   end if
+                   if(trim(to_upper(field(1))).eq."EPS_SCF")     then
+                      read(field(2),*) cp2k_param%force_eval%dft%scf%eps_scf
+                      msg(__LINE__),"FORCE EVAL > DFT >  SCF > EPS SCF > ",&
+                           cp2k_param%force_eval%dft%scf%eps_scf
+                   end if
+                   if(trim(to_upper(field(1))).eq."SCF_GUESS")     then
+                      cp2k_param%force_eval%dft%scf%scf_guess=field(2)
+                      msg(__LINE__),"FORCE EVAL > DFT >  SCF > SCF GUESS > ",&
+                           trim(cp2k_param%force_eval%dft%scf%scf_guess)
+                   end if
+                   if(trim(to_upper(field(1))).eq."ADDED_MOS")     then
+                      read(field(2),*) cp2k_param%force_eval%dft%scf%added_mos
+                      msg(__LINE__),"FORCE EVAL > DFT >  SCF > ADDED MOS > ",&
+                           cp2k_param%force_eval%dft%scf%added_mos
+                   end if
+                   if(b_force_eval_dft_scf_diag) then
+                      if(trim(to_upper(field(1))).eq."ALGORITHM")     then
+                         cp2k_param%force_eval%dft%scf%diag%algo=trim(field(2))
+                         msg(__LINE__),"FORCE EVAL > DFT >  SCF > DIAGONALIZATION > ALGORITHM > ",&
+                              cp2k_param%force_eval%dft%scf%diag%algo
+                      end if
+                   end if
+                   if(b_force_eval_dft_scf_smear) then
+                      if(trim(to_upper(field(1))).eq."METHOD")     then
+                         cp2k_param%force_eval%dft%scf%smear%method=trim(field(2))
+                         msg(__LINE__),"FORCE EVAL > DFT >  SCF > SMEAR > METHOD > ",&
+                              cp2k_param%force_eval%dft%scf%smear%method
+                      end if
+                      if(trim(to_upper(field(1))).eq."ELECTRONIC_TEMPERATURE")     then
+                         read(field(2),*) cp2k_param%force_eval%dft%scf%smear%electronic_temp
+                         msg(__LINE__),"FORCE EVAL > DFT >  SCF > SMEAR > ELECTRONIC TEMPERATURE > ",&
+                              cp2k_param%force_eval%dft%scf%smear%electronic_temp
+                      end if
+                   end if
+                   !
+                   ! FORCE_EVAL > DFT > MIXING
+                   !
+                   if(b_force_eval_dft_scf_mixing) then
+                      if(trim(to_upper(field(1))).eq."METHOD")     then
+                         cp2k_param%force_eval%dft%scf%mixing%method=trim(field(2))
+                         msg(__LINE__),"FORCE EVAL > DFT >  SCF > MIXING > METHOD > ",&
+                              cp2k_param%force_eval%dft%scf%mixing%method
+                      end if
+                      if(trim(to_upper(field(1))).eq."ALPHA")     then
+                         read(field(2),*) cp2k_param%force_eval%dft%scf%mixing%alpha
+                         msg(__LINE__),"FORCE EVAL > DFT >  SCF > MIXING > ALPHA > ",&
+                              cp2k_param%force_eval%dft%scf%mixing%alpha
+                      end if
+                      if(trim(to_upper(field(1))).eq."BETA")     then
+                         read(field(2),*) cp2k_param%force_eval%dft%scf%mixing%beta
+                         msg(__LINE__),"FORCE EVAL > DFT >  SCF > MIXING > BETA > ",&
+                              cp2k_param%force_eval%dft%scf%mixing%BETA
+                      end if
+                      if(trim(to_upper(field(1))).eq."NBUFFER")     then
+                         read(field(2),*) cp2k_param%force_eval%dft%scf%mixing%nbuffer
+                         msg(__LINE__),"FORCE EVAL > DFT >  SCF > MIXING > NBUFFER > ",&
+                              cp2k_param%force_eval%dft%scf%mixing%nbuffer
+                      end if
+                   end if
+                end if ! b_force_eval_dft_scf
+             end if
+          end if
+          !
+          ! GLOBAL
+          !
+          if(cp2k_param%global%state) then
+             if(trim(to_upper(field(1))).eq."PRINT_LEVEL")     then
+                cp2k_param%global%print_level=field(2)
+                msg(__LINE__),"PRINT_LEVEL => ",cp2k_param%global%print_level
+             end if
+             if(trim(to_upper(field(1))).eq."PROJECT_NAME")     then
+                cp2k_param%global%project_name=field(2)
+                msg(__LINE__),"PROJECT NAME => ", cp2k_param%global%project_name
+             end if
+             if(trim(to_upper(field(1))).eq."RUN_TYPE")     then
+                cp2k_param%global%run_type=field(2)
+                msg(__LINE__),"RUN TYPE => ",cp2k_param%global%run_type
+             end if
+          end if
+
+          if(b_motion) then
+             if(b_motion_geo_opt) then
+
+                if(trim(to_upper(field(1))).eq."STEP_START_VAL")     then
+                   read(field(2),*) cp2k_param%motion%geo_opt%step_start_val
+                   msg(__LINE__),"MOTION> STEP START VAL => ",cp2k_param%motion%geo_opt%step_start_val
+                end if
+             end if
+             if(b_motion_constraint) then
+                if(b_motion_constraint_fixed_atoms) then
+                   if(trim(to_upper(field(1))).eq."COMPONENTS_TO_FIX")     then
+                      cp2k_param%motion%constraint%fixed_atoms%COMPONENTS_TO_FIX=field(2)
+                      msg(__LINE__),"MOTION> CONSTRAINT > FIXED_ATOMS > COMPONENTS To FIXED => ",&
+                           cp2k_param%motion%constraint%fixed_atoms%COMPONENTS_TO_FIX
+                   end if
+                   if(trim(to_upper(field(1))).eq."LIST")     then
+                      nline=1
+                      !msg(__LINE__),trim(line), nfield
+                      !msg(__LINE__),"-",trim(field(nfield)),"-",trim(field(nfield)).eq.'\'
+                      if(trim(field(nfield)).eq.'\') then   !'
+                         cp2k_param%motion%constraint%fixed_atoms%nrec=9
+                      else
+                         cp2k_param%motion%constraint%fixed_atoms%nrec=nfield-1
+                      end if
+                      !msg(__LINE__),"nrec=",cp2k_param%motion%constraint%fixed_atoms%nrec
+                      !msg(__LINE__),trim(line)
+                      do while(.not.(trim(to_upper(field(1))).eq."&END"))
+                         read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);                         
+                         if(trim(field(nfield)).eq.'\') then         !'\'
+                            cp2k_param%motion%constraint%fixed_atoms%nrec=&
+                                 cp2k_param%motion%constraint%fixed_atoms%nrec+10
+                         else
+                            cp2k_param%motion%constraint%fixed_atoms%nrec=&
+                                 cp2k_param%motion%constraint%fixed_atoms%nrec+nfield-1
+                         end if
+                         nline=nline+1
+                         !msg(__LINE__),trim(line),nfield
+                      end do
+                      !msg(__LINE__),"nrecord= ",cp2k_param%motion%constraint%fixed_atoms%nrec
+                      if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."FIXED_ATOMS"))      &
+                           b_motion_constraint_fixed_atoms=.FALSE.
+
+                      !msg(__LINE__),trim(line)
+                      do i=1,nline
+                         backspace 1
+                      end do
+                      allocate(cp2k_param%motion%constraint%fixed_atoms%list&
+                           (cp2k_param%motion%constraint%fixed_atoms%nrec))
+                      j=1
+                      read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+                      if(nfield.eq.11) then
+                         !msg(__LINE__),trim(line)," =>",nfield-2
+                         do jrec=1,nfield-2
+                            read(field(jrec+1),*) cp2k_param%motion%constraint%fixed_atoms%list(j)
+                            j=j+1
+                         end do
+                      else
+                         !msg(__LINE__),trim(line)," =>",nfield-1
+                         do jrec=1,nfield-1
+                            read(field(jrec+1),*) cp2k_param%motion%constraint%fixed_atoms%list(j)
+                            j=j+1
+                         end do
+
+                      end if
+                      if(nline.gt.2) then
+                         do i=2,nline-1
+                            read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+                            if(nfield.eq.11) then
+                               !msg(__LINE__),trim(line)," =>",nfield-1
+                               do jrec=1,nfield-1
+                                  read(field(jrec),*) cp2k_param%motion%constraint%fixed_atoms%list(j)
+                                  j=j+1
+                               end do
+
+                            else
+                               !msg(__LINE__),trim(line)," =>",nfield
+                               do jrec=1,nfield
+                                   read(field(jrec),*) cp2k_param%motion%constraint%fixed_atoms%list(j)
+                                  j=j+1
+                               end do
+
+                            end if
+                         end do
+                      end if
+                      msg(__LINE__),"MOTION > CONSTRAINT > FIXED ATOMS > LIST > ",&
+                           cp2k_param%motion%constraint%fixed_atoms%list
+                      !stop
+                      
+                   end if ! LIST 
+                end if
+             end if
+          end if
+       end if ! nfield.gt.0
+    end do
+    
+  end subroutine IO_read_cp2k_restart_file
+  ! --------------------------------------------------------------------------------------
+  !
+  !          subroutine IO_read_parametrization_file(param)
+  !
+  ! --------------------------------------------------------------------------------------
+  subroutine IO_read_parametrization_file(param)
+    use global
+    implicit none
+    type(t_Param)::param
+    character(len=256)::name
+    !
+    integer::io
+    character (len=1024)::line
+    character (len=NCHARFIELD)::field(32)
+    integer::nfield,i,j,k
+    logical::bool_input,bool_output,bool_machine
+
+    param%n_inputs=0
+    param%n_outputs=0
+    bool_input=.FALSE.
+    bool_output=.FALSE.
+    bool_machine=.FALSE.
+
+    !
+    ! cette partie permet de compter le nombre de blocs d'input & d'output
+    !
+    
+    io=0
+    open(unit=1,file=param%filename,form='formatted')
+    do while(io.eq.0)
+       read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+       if(nfield.gt.0) then
+
+          if(field(1).eq."&run_type")         param%run_type=field(2)
+          if(field(1).eq."&system")           param%calculation%system=field(2)  
+          if(field(1).eq."&input")            bool_input=.TRUE.
+          if(field(1).eq."&end_input")        bool_input=.FALSE.
+          if(field(1).eq."&output")           bool_output=.TRUE.
+          if(field(1).eq."&end_output")       bool_output=.FALSE.
+          if(field(1).eq."&machine")          bool_machine=.TRUE.
+          if(field(1).eq."&end_machine")      bool_machine=.FALSE.
+          write(*,*) trim(line)
+
+          if((bool_input).and.(trim(field(1)).eq."&name"))     param%n_inputs=param%n_inputs+1
+          if((bool_output).and.(trim(field(1)).eq."&name"))     param%n_outputs=param%n_outputs+1
+          if((bool_machine).and.(trim(field(1)).eq."&name"))     param%machine=field(2)
+       end if
+    end do
+
+    allocate(param%input(param%n_inputs))
+    allocate(param%output(param%n_outputs))
+
+    !
+    ! lecture des paramètres
+    !
+    
+    rewind(1)
+    j=0
+    k=0
+    io=0
+    do while(io.eq.0)
+       read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+       if(nfield.gt.0) then
+          ! ----------------------------------------------------------------
+          if(field(1).eq."&input")  then
+             k=k+1
+             bool_input=.TRUE.
+          end if
+          if(field(1).eq."&end_input")          bool_input=.FALSE.
+          if((bool_input).and.(trim(field(1)).eq."&name"))     then
+             param%input(k)%name=field(2)
+          end if
+          if((bool_input).and.(trim(field(1)).eq."&type"))     then
+             param%input(k)%type=field(2)
+          end if
+          if((bool_input).and.(trim(field(1)).eq."&config"))     then
+             read(field(2),*) param%input(k)%iconf
+          end if
+          ! ----------------------------------------------------------------
+          if(field(1).eq."&output")  then
+             j=j+1
+             bool_output=.TRUE.
+          end if
+          if(field(1).eq."&end_output")          bool_output=.FALSE.
+          if((bool_output).and.(trim(field(1)).eq."&name"))     then
+             param%output(j)%name=field(2)
+          end if
+          if((bool_output).and.(trim(field(1)).eq."&type"))     then
+             param%output(j)%type=field(2)
+          end if
+
+
+          
+       end if
+    end do
+    close(1)
+
+    msg(__LINE__), " n_inputs= ",param%n_inputs
+    do i=1,param%n_inputs
+       msg(__LINE__), " input ",i,":",trim(param%input(i)%name)," (",trim(param%input(i)%type)," )"
+    end do
+
+    msg(__LINE__), " n_outpus= ",param%n_outputs
+    do i=1,param%n_outputs
+       msg(__LINE__), " output ",i,":",&
+            trim(param%output(i)%name)," (",trim(param%output(i)%type)," )"
+    end do
+
+  end subroutine IO_read_parametrization_file
   ! --------------------------------------------------------------------------------------
   !
   !              IO_write()
@@ -1033,7 +1905,7 @@ contains
     case('cp2k_input')
        print *,"# cp2k input file"
        do iconf=1,univers%n_configurations
-          call read_cp2k_input_file(name,univers%configurations(iconf)%cells)
+          call IO_read_cp2k_input_file(name,univers%configurations(iconf)%cells)
        end do
     case ('multixyz')
        print *,"# Multi xyz file"

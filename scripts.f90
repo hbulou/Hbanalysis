@@ -8,6 +8,7 @@ contains
 
   !  subroutine interpol(param)
   !  subroutine concat(param)
+  !  subroutine crystal(param)
   !  subroutine solvent()
   !  subroutine Ti()
   !  subroutine TiOH()
@@ -17,115 +18,21 @@ contains
 
   ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !
-  !             subroutine crystal()
-  !   construit un substrat 
+  !               subroutine test()
   !
   ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  subroutine crystal(param)
+  subroutine test(param)
     use global
-    use Univers
-    use Atom
     use IO
-    use Cell
+    
     implicit none
     type(t_Param)::param
-    type(t_Cell)::unit_cell
-    type(t_Univers)::univ
-    integer::ibrav,i,j,nat(3),iconf
-    double precision::a,csura,evacc,q(3)
-    double precision,parameter::ZERO=0.0
-    !type(t_File)::file
-    type(t_Atom)::atm
-    logical::ads
-    character(len=2)::elt
-    type(t_Molecule)::rlx
-    integer::idx_conf_to_read
-    iconf=1
-    univ=UNIVERS_new()
-    
-    call UNIVERS_add_configuration(univ)
-    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !
-    !           lowest part of the slab
-    !
-    !
-    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    
-    ibrav=4 ! Hexagonal and Trigonal P
-    elt="Pd"
-    a=2.89
+    type(t_CP2K_param)::cp2k_param
+    call IO_read_cp2k_restart_file(param%input(1)%name,cp2k_param)
+    call IO_save(param%output(1)%name,cp2k_param)
 
-    csura=sqrt(6.0)/3.0
-    unit_cell=CELL_set_unit_cell(ibrav,a,csura,elt)
-    ads=.FALSE.
-    !ads=.TRUE.
-    
-    nat=(/10,10,1/) 
-    !nat=(/10,10,1/) 
-    !nat=(/8,8,1/) 
-    !nat=(/6,6,1/) 
-    !nat=(/4,4,1/) 
-    !nat=(/1,1,1/) 
-    evacc=0.0
-    !evacc=10.0/nat(3)
-    !evacc=1.0/nat(3)
-    param%input%name="cp2k.in"
-    param%input%type="cp2k_input"
-    param%title="run"
-
-    param%calculation%run_type="WAVEFUNCTION_OPTIMIZATION"
-    !param%calculation%run_type="GEO_OPT"
-    param%calculation%ecutoff=400.0
-    param%calculation%basis_name="BASIS_MOLOPT"   ! BASIS_SET
-    param%calculation%potential_name="POTENTIAL"   
-    param%calculation%xc_functional="PBE"
-    param%calculation%k(1)=1
-    param%calculation%k(2)=param%calculation%k(1)
-    param%calculation%k(3)=param%calculation%k(1)
-    if(param%calculation%k(1).eq.1) then
-       param%calculation%scheme="gamma"
-    else
-       param%calculation%scheme="MONKHORST-PACK"
-    end if
-    
-    PeriodicTable(22)%Basis_set="DZVP-MOLOPT-SR-GTH"
-    PeriodicTable(22)%Potential_set="GTH-PBE-q12"
-    PeriodicTable(46)%Basis_set="DZVP-MOLOPT-SR-GTH"
-    PeriodicTable(46)%Potential_set="GTH-PBE-q10"
-    PeriodicTable(46)%Potential_set="GTH-PBE-q18"
-
-    
-    univ%configurations(1)%cells=CELL_slab(ibrav,a,csura,nat,unit_cell,evacc)
-    !print *,"# k1= ",(univ%configurations(iconf)%cells%k(i),i=1,3)
-    print *,"# MAIN> n_XYZ=",univ%configurations(1)%cells%molecules(1)%constraints%n_XYZ
-    
-
-    
-    
-    do i=1,3
-       print *,(univ%configurations(1)%cells%L(i,j),j=1,3)
-    end do
-    print *,"# celldm(1)=",univ%configurations(1)%cells%L(1,1)/a0
-    print *,"# celldm(3)=",univ%configurations(1)%cells%L(3,3)/univ%configurations(1)%cells%L(1,1)
-    
-    
-    print *,"# n_atoms in new=",univ%configurations(1)%cells%molecules(1)%n_atoms
-    print *,"# PERIODICITY= ",univ%configurations(iconf)%cells%periodicity
-    univ%configurations(iconf)%cells%periodicity="XYZ"
-    !univ%configurations(iconf)%cells%periodicity="XY"
-
-
-    
-    
-
-
-    iconf=1 ; call IO_write(param,univ,iconf)
-
-    !iconf=1;     param%output%name="essai.xsf" ;   call save(param%output%name,univ,iconf)
-    
-    
-  end subroutine crystal
-  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  end subroutine test
+    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !
   !               subroutine interpol(param)
   !
@@ -549,6 +456,118 @@ contains
 
 
 
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !
+  !             subroutine crystal()
+  !   construit un substrat 
+  !
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  subroutine crystal(param)
+    use global
+    use Univers
+    use Atom
+    use IO
+    use Cell
+    implicit none
+    type(t_Param)::param
+    type(t_Cell)::unit_cell
+    type(t_Univers)::univ
+    integer::ibrav,i,j,nat(3),iconf
+    double precision::a,csura,evacc,q(3)
+    double precision,parameter::ZERO=0.0
+    !type(t_File)::file
+    type(t_Atom)::atm
+    logical::ads
+    character(len=2)::elt
+    type(t_Molecule)::rlx
+    integer::idx_conf_to_read
+    iconf=1
+    univ=UNIVERS_new()
+    
+    call UNIVERS_add_configuration(univ)
+    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !
+    !           lowest part of the slab
+    !
+    !
+    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
+    ibrav=4 ! Hexagonal and Trigonal P
+    elt="Pd"
+    a=2.89
+
+    csura=sqrt(6.0)/3.0
+    unit_cell=CELL_set_unit_cell(ibrav,a,csura,elt)
+    ads=.FALSE.
+    !ads=.TRUE.
+    
+    nat=(/10,10,1/) 
+    !nat=(/10,10,1/) 
+    !nat=(/8,8,1/) 
+    !nat=(/6,6,1/) 
+    !nat=(/4,4,1/) 
+    !nat=(/1,1,1/) 
+    evacc=0.0
+    !evacc=10.0/nat(3)
+    !evacc=1.0/nat(3)
+    param%input%name="cp2k.in"
+    param%input%type="cp2k_input"
+    param%title="run"
+
+    param%calculation%run_type="WAVEFUNCTION_OPTIMIZATION"
+    !param%calculation%run_type="GEO_OPT"
+    param%calculation%ecutoff=400.0
+    param%calculation%basis_name="BASIS_MOLOPT"   ! BASIS_SET
+    param%calculation%potential_name="POTENTIAL"   
+    param%calculation%xc_functional="PBE"
+    param%calculation%k(1)=1
+    param%calculation%k(2)=param%calculation%k(1)
+    param%calculation%k(3)=param%calculation%k(1)
+    if(param%calculation%k(1).eq.1) then
+       param%calculation%scheme="gamma"
+    else
+       param%calculation%scheme="MONKHORST-PACK"
+    end if
+    
+    PeriodicTable(22)%Basis_set="DZVP-MOLOPT-SR-GTH"
+    PeriodicTable(22)%Potential_set="GTH-PBE-q12"
+    PeriodicTable(46)%Basis_set="DZVP-MOLOPT-SR-GTH"
+    PeriodicTable(46)%Potential_set="GTH-PBE-q10"
+    PeriodicTable(46)%Potential_set="GTH-PBE-q18"
+
+    
+    univ%configurations(1)%cells=CELL_slab(ibrav,a,csura,nat,unit_cell,evacc)
+    !print *,"# k1= ",(univ%configurations(iconf)%cells%k(i),i=1,3)
+    print *,"# MAIN> n_XYZ=",univ%configurations(1)%cells%molecules(1)%constraints%n_XYZ
+    
+
+    
+    
+    do i=1,3
+       print *,(univ%configurations(1)%cells%L(i,j),j=1,3)
+    end do
+    print *,"# celldm(1)=",univ%configurations(1)%cells%L(1,1)/a0
+    print *,"# celldm(3)=",univ%configurations(1)%cells%L(3,3)/univ%configurations(1)%cells%L(1,1)
+    
+    
+    print *,"# n_atoms in new=",univ%configurations(1)%cells%molecules(1)%n_atoms
+    print *,"# PERIODICITY= ",univ%configurations(iconf)%cells%periodicity
+    univ%configurations(iconf)%cells%periodicity="XYZ"
+    !univ%configurations(iconf)%cells%periodicity="XY"
+
+
+    
+    
+
+
+    iconf=1 ; call IO_write(param,univ,iconf)
+
+    !iconf=1;     param%output%name="essai.xsf" ;   call save(param%output%name,univ,iconf)
+    
+    
+  end subroutine crystal
   ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !
   !             subroutine solvent()
