@@ -28,7 +28,9 @@ contains
     implicit none
     type(t_Param)::param
     type(t_CP2K_param)::cp2k_param
+    msg(__LINE__), trim(param%input(1)%name)
     call IO_read_cp2k_restart_file(param%input(1)%name,cp2k_param)
+    
     call IO_save(param%output(1)%name,cp2k_param)
 
   end subroutine test
