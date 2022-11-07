@@ -165,7 +165,8 @@ module global
   end type t_CP2K_motion_constraint_fixed_atoms
 
   type t_CP2K_motion_constraint
-     type(t_CP2K_motion_constraint_fixed_atoms)::fixed_atoms
+     integer::n_types
+     type(t_CP2K_motion_constraint_fixed_atoms),allocatable::fixed_atoms(:)
   end type t_CP2K_motion_constraint
 
 

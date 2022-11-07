@@ -67,6 +67,8 @@ program new
   case('solvent')
      idx_input=1
      call solvent(param,idx_input)
+  case('strain')
+     call strain(param)
   case default
      error(__LINE__), " Keywords ",param%run_type," doesn't exist"
      stop

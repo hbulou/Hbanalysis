@@ -37,7 +37,7 @@ contains
     use global
     implicit none
     type(t_CP2K_param)::cp2k_param
-    integer::i,j,k,kk,l
+    integer::i,j,k,kk,l,ifixed
     character(len=1024)::filename
 
     open(unit=1,file=filename,form='formatted')
@@ -52,10 +52,14 @@ contains
     write(1,*) "     STEP_START_VAL  ",cp2k_param%motion%geo_opt%step_start_val
     write(1,*) "   &END GEO_OPT"
     write(1,*) "   &CONSTRAINT"
-    write(1,*) "     &FIXED_ATOMS"
-    write(1,*) "       COMPONENTS_TO_FIX  ",trim(cp2k_param%motion%constraint%fixed_atoms%COMPONENTS_TO_FIX)
-    write(1,*) "       LIST ",cp2k_param%motion%constraint%fixed_atoms%list
-    write(1,*) "     &END FIXED_ATOMS"
+    do ifixed=1,cp2k_param%motion%constraint%n_types
+       write(1,*) "     &FIXED_ATOMS"
+       write(1,*) "       COMPONENTS_TO_FIX  ",trim(cp2k_param%motion%constraint%fixed_atoms(ifixed)%COMPONENTS_TO_FIX)
+       !write(1,*) "       LIST ",size(cp2k_param%motion%constraint%fixed_atoms(ifixed)%list),&
+       !     cp2k_param%motion%constraint%fixed_atoms(ifixed)%nrec
+       write(1,*) "       LIST ",cp2k_param%motion%constraint%fixed_atoms(ifixed)%list
+       write(1,*) "     &END FIXED_ATOMS"
+    end do
     write(1,*) "   &END CONSTRAINT"
     write(1,*) " &END MOTION"
 
@@ -701,26 +705,66 @@ contains
   !    subroutine IO_read_cp2k_restart_file(filename,cp2k_param)
   !
   ! --------------------------------------------------------------------------------------
+  subroutine CP2K_free_constraint(src)
+    use global
+    implicit none
+    type(t_CP2K_motion_constraint)::src
+    integer::i
+    do i=1,src%n_types
+       deallocate(src%fixed_atoms(i)%list)
+    end do
+    deallocate(src%fixed_atoms)
+  end subroutine CP2K_free_constraint
+
+
+  subroutine CP2K_constraint_copy(src,dest) 
+    use global
+    implicit none
+    integer::i,j
+    type(t_CP2K_motion_constraint)::dest,src
+
+    msg(__LINE__), "Allocated dest%fixed_atoms? ",allocated(dest%fixed_atoms)
+    msg(__LINE__), "src%n_types= ",src%n_types
+    msg(__LINE__), "dest%n_types= ",dest%n_types
+    if(.not.allocated(dest%fixed_atoms)) then
+       dest%n_types=src%n_types
+       allocate(dest%fixed_atoms(dest%n_types))
+    end if
+    do i=1,src%n_types
+       dest%fixed_atoms(i)%COMPONENTS_TO_FIX=&
+            src%fixed_atoms(i)%COMPONENTS_TO_FIX
+       dest%fixed_atoms(i)%nrec=src%fixed_atoms(i)%nrec
+       allocate(dest%fixed_atoms(i)%list(&
+            dest%fixed_atoms(i)%nrec))
+       do j=1,dest%fixed_atoms(i)%nrec
+          dest%fixed_atoms(i)%list(j)=src%fixed_atoms(i)%list(j)
+       end do
+    end do
+  end subroutine CP2K_constraint_copy
+                      
+
   subroutine IO_read_cp2k_restart_file(filename,cp2k_param)
     use global
     use Atom
     use Molecule
     use Kind
     implicit none
+    type(t_CP2K_motion_constraint)::TMPconstraint
+                      
     type(t_CP2K_param)::cp2k_param
-    character(len=32)::filename
+    character(len=2048)::filename
     type(t_Atom)::atm
     !
     integer::nline,i,j,jrec,k,l,unit
     !
-    integer::io
+    integer::io,icur
     character (len=1024)::line
     character (len=NCHARFIELD)::field(32)
     integer::nfield
     !logical::b_global
     logical::b_force_eval,b_ext_restart
     logical::b_motion,b_motion_geo_opt
-    logical::b_motion_constraint,b_motion_constraint_fixed_atoms
+    logical::b_motion_constraint !,b_motion_constraint_fixed_atoms
     !logical::b_force_eval_dft
     logical::b_force_eval_dft_scf,b_force_eval_dft_qs
     logical::b_force_eval_dft_mgrid,b_force_eval_dft_xc,b_force_eval_dft_poisson
@@ -746,7 +790,8 @@ contains
     b_motion=.FALSE.
     b_motion_geo_opt=.FALSE.
     b_motion_constraint=.FALSE.
-    b_motion_constraint_fixed_atoms=.FALSE.
+    !b_motion_constraint_fixed_atoms=.FALSE.
+    cp2k_param%motion%constraint%n_types=0
     b_force_eval=.FALSE.
     !b_force_eval_dft=.FALSE.
     b_force_eval_dft_scf=.FALSE.
@@ -796,9 +841,9 @@ contains
           if(b_motion) then
              if(to_upper(field(1)).eq."&GEO_OPT")             b_motion_geo_opt=.TRUE.
              if(to_upper(field(1)).eq."&CONSTRAINT")          b_motion_constraint=.TRUE.
-             if(b_motion_constraint) then
-                if(to_upper(field(1)).eq."&FIXED_ATOMS")         b_motion_constraint_fixed_atoms=.TRUE.
-             end if
+             !if(b_motion_constraint) then
+             !   if(to_upper(field(1)).eq."&FIXED_ATOMS")         b_motion_constraint_fixed_atoms=.TRUE.
+             !end if
           end if
           !
           ! FORCE EVAL PART
@@ -881,10 +926,10 @@ contains
                 end if
                 if(b_motion_constraint) then
                    if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."CONSTRAINT"))      b_motion_constraint=.FALSE.
-                   if(b_motion_constraint_fixed_atoms) then
-                      if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."FIXED_ATOMS"))      &
-                           b_motion_constraint_fixed_atoms=.FALSE.
-                   end if
+                   !if(b_motion_constraint_fixed_atoms) then
+                   !   if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."FIXED_ATOMS"))      &
+                   !        b_motion_constraint_fixed_atoms=.FALSE.
+                   !end if
                 end if
              end if
 
@@ -1266,87 +1311,132 @@ contains
                 end if
              end if
              if(b_motion_constraint) then
-                if(b_motion_constraint_fixed_atoms) then
-                   if(trim(to_upper(field(1))).eq."COMPONENTS_TO_FIX")     then
-                      cp2k_param%motion%constraint%fixed_atoms%COMPONENTS_TO_FIX=field(2)
-                      msg(__LINE__),"MOTION> CONSTRAINT > FIXED_ATOMS > COMPONENTS To FIXED => ",&
-                           cp2k_param%motion%constraint%fixed_atoms%COMPONENTS_TO_FIX
-                   end if
-                   if(trim(to_upper(field(1))).eq."LIST")     then
-                      nline=1
-                      !msg(__LINE__),trim(line), nfield
-                      !msg(__LINE__),"-",trim(field(nfield)),"-",trim(field(nfield)).eq.'\'
-                      if(trim(field(nfield)).eq.'\') then   !'
-                         cp2k_param%motion%constraint%fixed_atoms%nrec=9
-                      else
-                         cp2k_param%motion%constraint%fixed_atoms%nrec=nfield-1
-                      end if
-                      !msg(__LINE__),"nrec=",cp2k_param%motion%constraint%fixed_atoms%nrec
-                      !msg(__LINE__),trim(line)
-                      do while(.not.(trim(to_upper(field(1))).eq."&END"))
-                         read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);                         
-                         if(trim(field(nfield)).eq.'\') then         !'\'
-                            cp2k_param%motion%constraint%fixed_atoms%nrec=&
-                                 cp2k_param%motion%constraint%fixed_atoms%nrec+10
-                         else
-                            cp2k_param%motion%constraint%fixed_atoms%nrec=&
-                                 cp2k_param%motion%constraint%fixed_atoms%nrec+nfield-1
-                         end if
-                         nline=nline+1
-                         !msg(__LINE__),trim(line),nfield
-                      end do
-                      !msg(__LINE__),"nrecord= ",cp2k_param%motion%constraint%fixed_atoms%nrec
-                      if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."FIXED_ATOMS"))      &
-                           b_motion_constraint_fixed_atoms=.FALSE.
-
-                      !msg(__LINE__),trim(line)
-                      do i=1,nline
-                         backspace 1
-                      end do
-                      allocate(cp2k_param%motion%constraint%fixed_atoms%list&
-                           (cp2k_param%motion%constraint%fixed_atoms%nrec))
-                      j=1
-                      read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
-                      if(nfield.eq.11) then
-                         !msg(__LINE__),trim(line)," =>",nfield-2
-                         do jrec=1,nfield-2
-                            read(field(jrec+1),*) cp2k_param%motion%constraint%fixed_atoms%list(j)
-                            j=j+1
-                         end do
-                      else
-                         !msg(__LINE__),trim(line)," =>",nfield-1
-                         do jrec=1,nfield-1
-                            read(field(jrec+1),*) cp2k_param%motion%constraint%fixed_atoms%list(j)
-                            j=j+1
-                         end do
-
-                      end if
-                      if(nline.gt.2) then
-                         do i=2,nline-1
-                            read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
-                            if(nfield.eq.11) then
-                               !msg(__LINE__),trim(line)," =>",nfield-1
-                               do jrec=1,nfield-1
-                                  read(field(jrec),*) cp2k_param%motion%constraint%fixed_atoms%list(j)
-                                  j=j+1
-                               end do
-
-                            else
-                               !msg(__LINE__),trim(line)," =>",nfield
-                               do jrec=1,nfield
-                                   read(field(jrec),*) cp2k_param%motion%constraint%fixed_atoms%list(j)
-                                  j=j+1
-                               end do
-
-                            end if
-                         end do
-                      end if
-                      msg(__LINE__),"MOTION > CONSTRAINT > FIXED ATOMS > LIST > ",&
-                           cp2k_param%motion%constraint%fixed_atoms%list
-                      !stop
+                if(trim(to_upper(field(1))).eq."&FIXED_ATOMS") then
+                   icur=cp2k_param%motion%constraint%n_types+1
+                   msg(__LINE__),cp2k_param%motion%constraint%n_types
+                   if(cp2k_param%motion%constraint%n_types.eq.0) then
+                      allocate(cp2k_param%motion%constraint%fixed_atoms(icur))
+                      cp2k_param%motion%constraint%fixed_atoms(icur)%nrec=0
+                   else
+                      msg(__LINE__),"#################################"
+                      call CP2K_constraint_copy(cp2k_param%motion%constraint,TMPconstraint)
+                      call CP2K_free_constraint(cp2k_param%motion%constraint)
                       
-                   end if ! LIST 
+                      msg(__LINE__), "iicur= ",icur," Allocated list? ",&
+                           allocated(cp2k_param%motion%constraint%fixed_atoms)
+                      allocate(cp2k_param%motion%constraint%fixed_atoms(icur))
+                      cp2k_param%motion%constraint%fixed_atoms(icur)%nrec=0
+                      msg(__LINE__),"--------------------------------"
+                      msg(__LINE__), "iicur= ",icur," Allocated list? ",&
+                           allocated(cp2k_param%motion%constraint%fixed_atoms(icur)%list)
+                      
+                      call CP2K_constraint_copy(TMPconstraint,cp2k_param%motion%constraint)
+                      call CP2K_free_constraint(TMPconstraint)
+                      msg(__LINE__), "iicur= ",icur," Allocated list? ",&
+                           allocated(cp2k_param%motion%constraint%fixed_atoms(icur)%list)
+
+                   end if
+                   ! --------------------------------------------------------------------------------------
+                   do while(.not.((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."FIXED_ATOMS")))
+                      
+                      read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+                      if(trim(to_upper(field(1))).eq."COMPONENTS_TO_FIX")     then
+                         cp2k_param%motion%constraint%fixed_atoms(icur)%COMPONENTS_TO_FIX=field(2)
+                         msg(__LINE__),"MOTION> CONSTRAINT > FIXED_ATOMS > COMPONENTS To FIXED => ",&
+                              cp2k_param%motion%constraint%fixed_atoms(icur)%COMPONENTS_TO_FIX
+                      end if
+
+                      if(trim(to_upper(field(1))).eq."LIST")     then
+                         nline=1
+                         !msg(__LINE__),trim(line), nfield
+                         !msg(__LINE__),"-",trim(field(nfield)),"-",trim(field(nfield)).eq.'\'
+                         if(trim(field(nfield)).eq.'\') then   
+                            cp2k_param%motion%constraint%fixed_atoms(icur)%nrec=9
+                         else
+                            cp2k_param%motion%constraint%fixed_atoms(icur)%nrec=nfield-1
+                         end if
+                         msg(__LINE__),trim(line)
+                         msg(__LINE__),"nrec=",cp2k_param%motion%constraint%fixed_atoms(icur)%nrec
+                         do while(.not.(trim(to_upper(field(1))).eq."&END"))
+                            read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);  
+                            
+                            if(.not.(trim(to_upper(field(1))).eq."&END")) then
+                               if(trim(field(nfield)).eq.'\') then 
+                                  cp2k_param%motion%constraint%fixed_atoms(icur)%nrec=&
+                                       cp2k_param%motion%constraint%fixed_atoms(icur)%nrec+10
+                               else
+                                  cp2k_param%motion%constraint%fixed_atoms(icur)%nrec=&
+                                       cp2k_param%motion%constraint%fixed_atoms(icur)%nrec+nfield
+                               end if
+                            end if
+                            msg(__LINE__),trim(line)
+                            msg(__LINE__),"nrec=",cp2k_param%motion%constraint%fixed_atoms(icur)%nrec
+
+
+                            nline=nline+1
+                            !msg(__LINE__),trim(line),nfield
+                         end do
+                         !msg(__LINE__),"nrecord= ",cp2k_param%motion%constraint%fixed_atoms%nrec
+                         !if((to_upper(field(1)).eq."&END").and.(to_upper(field(2)).eq."FIXED_ATOMS"))      &
+                         !     b_motion_constraint_fixed_atoms=.FALSE.
+                         
+                         !msg(__LINE__),trim(line)
+                         do i=1,nline
+                            backspace 1
+                         end do
+                         msg(__LINE__), "icur= ",icur," Allocated list? ",&
+                              allocated(cp2k_param%motion%constraint%fixed_atoms(icur)%list)
+                         !if(allocated(cp2k_param%motion%constraint%fixed_atoms(icur)%list))&
+                         !     deallocate(cp2k_param%motion%constraint%fixed_atoms(icur)%list)
+                         msg(__LINE__),"nrec=",cp2k_param%motion%constraint%fixed_atoms(icur)%nrec
+                         allocate(cp2k_param%motion%constraint%fixed_atoms(icur)%list&
+                              (cp2k_param%motion%constraint%fixed_atoms(icur)%nrec))
+                         j=1
+                         read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+                         if(nfield.eq.11) then
+                            !msg(__LINE__),trim(line)," =>",nfield-2
+                            do jrec=1,nfield-2
+                               read(field(jrec+1),*) cp2k_param%motion%constraint%fixed_atoms(icur)%list(j)
+                               j=j+1
+                            end do
+                         else
+                            !msg(__LINE__),trim(line)," =>",nfield-1
+                            do jrec=1,nfield-1
+                               read(field(jrec+1),*) cp2k_param%motion%constraint%fixed_atoms(icur)%list(j)
+                               j=j+1
+                            end do
+                            
+                         end if
+                         if(nline.gt.2) then
+                            do i=2,nline-1
+                               read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+                               if(nfield.eq.11) then
+                                  !msg(__LINE__),trim(line)," =>",nfield-1
+                                  do jrec=1,nfield-1
+                                     read(field(jrec),*) cp2k_param%motion%constraint%fixed_atoms(icur)%list(j)
+                                     j=j+1
+                                  end do
+                                  
+                               else
+                                  !msg(__LINE__),trim(line)," =>",nfield
+                                  do jrec=1,nfield
+                                     read(field(jrec),*) cp2k_param%motion%constraint%fixed_atoms(icur)%list(j)
+                                     j=j+1
+                                  end do
+                                  
+                               end if
+                            end do
+                         end if
+                         msg(__LINE__),"MOTION > CONSTRAINT > FIXED ATOMS > LIST > ",&
+                              cp2k_param%motion%constraint%fixed_atoms(icur)%list
+                         
+                      end if ! LIST 
+                      
+                   end do
+                   cp2k_param%motion%constraint%n_types=cp2k_param%motion%constraint%n_types+1
+
                 end if
+                
              end if
           end if
        end if ! nfield.gt.0
@@ -1424,6 +1514,7 @@ contains
           if(field(1).eq."&end_input")          bool_input=.FALSE.
           if((bool_input).and.(trim(field(1)).eq."&name"))     then
              param%input(k)%name=field(2)
+             msg(__LINE__), "param%input(",k,")%name= ", param%input(k)%name
           end if
           if((bool_input).and.(trim(field(1)).eq."&type"))     then
              param%input(k)%type=field(2)
@@ -2179,10 +2270,11 @@ contains
   !              save_molecule()
   !
   ! --------------------------------------------------------------------------------------
-  subroutine save_molecule(mol)
+  subroutine save_molecule(filename,mol)
     use Element
     use Molecule
     implicit none
+    character(len=2048)::filename
     type(t_Molecule)::mol
     integer::k,jat
     
@@ -2193,7 +2285,7 @@ contains
     !   write(*,*) tab(jat),mol%atoms(tab(jat))%q(3)
     !end do
     msg(__LINE__), " Saving into molecule.xyz"
-    open(unit=1,file= "molecule.xyz",form='formatted',status='unknown')
+    open(unit=1,file=filename,form='formatted',status='unknown')
     write(1,*) mol%n_atoms
     write(1,*)
     do jat=1,mol%n_atoms

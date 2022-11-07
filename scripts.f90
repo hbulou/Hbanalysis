@@ -18,19 +18,110 @@ contains
 
   ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !
+  !             subroutine strain()
+  !   
+  !
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  subroutine strain(param)
+    use global
+    use IO
+    use Molecule
+    use Atom
+    implicit none
+    character(len=2048)::filename
+    type(t_Param)::param
+    type(t_CP2K_param)::cp2k_param
+    integer::i,iat,j,k
+    double precision,allocatable::r(:)
+    double precision::eps(3,3),q(3)
+    type(t_CP2K_motion_constraint)::TMPconstraint    
+    msg(__LINE__), trim(param%input(1)%name)
+    msg(__LINE__), trim(param%input(2)%name)
+    call IO_read_cp2k_restart_file(param%input(1)%name,cp2k_param)
+
+
+    ! eps = transpose(reshape((/ 1, 2, 3, 4, 5, 6, 7, 8, 9 /), shape(eps)))
+    ! 1 2 3
+    ! 4 5 6
+    ! 7 8 9
+    
+    eps = transpose(reshape((/ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.1 /), shape(eps)))
+
+    !
+    ! 
+    !
+    if(allocated(cp2k_param%force_eval%subsys%coord%mol%atoms)) &
+         deallocate(cp2k_param%force_eval%subsys%coord%mol%atoms)
+    cp2k_param%force_eval%subsys%coord%mol=&
+         MOLECULE_read_multixyz(param%input(2)%name) 
+    filename="molin.xyz"
+    call save_molecule(filename,cp2k_param%force_eval%subsys%coord%mol)
+
+    do iat=1,cp2k_param%force_eval%subsys%coord%mol%n_atoms
+       if(.not.(cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%elt.eq."Ti")) then
+          r=ATOM_rij(cp2k_param%force_eval%subsys%coord%mol%atoms(168),&
+               cp2k_param%force_eval%subsys%coord%mol%atoms(iat))
+          q=cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%q
+          do j=1,3
+             do k=1,3
+                q(j)=q(j)+eps(j,k)*r(k)
+             end do
+          end do
+          msg(__LINE__),cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%elt,r
+          msg(__LINE__),cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%q
+          cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%q=q
+          r=ATOM_rij(cp2k_param%force_eval%subsys%coord%mol%atoms(168),&
+               cp2k_param%force_eval%subsys%coord%mol%atoms(iat))
+
+          msg(__LINE__),cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%q
+          msg(__LINE__),cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%elt,r
+       end if
+    end do
+    call CP2K_constraint_copy(cp2k_param%motion%constraint,TMPconstraint)
+    call CP2K_free_constraint(cp2k_param%motion%constraint)
+    
+    allocate(cp2k_param%motion%constraint%fixed_atoms(2))
+    call CP2K_constraint_copy(TMPconstraint,cp2k_param%motion%constraint)
+
+
+    cp2k_param%motion%constraint%n_types=2
+    cp2k_param%motion%constraint%fixed_atoms(2)%nrec=1
+    cp2k_param%motion%constraint%fixed_atoms(2)%COMPONENTS_TO_FIX='Z'
+    
+    if(allocated(cp2k_param%motion%constraint%fixed_atoms(2)%list)) deallocate(cp2k_param%motion%constraint%fixed_atoms(2)%list)
+    allocate(cp2k_param%motion%constraint%fixed_atoms(2)%list&
+         (cp2k_param%motion%constraint%fixed_atoms(2)%nrec))
+    cp2k_param%motion%constraint%fixed_atoms(2)%list(1)=325
+    filename="molout.xyz"
+    call save_molecule(filename,cp2k_param%force_eval%subsys%coord%mol)
+    call IO_save(param%output(1)%name,cp2k_param)
+  end subroutine strain
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !
   !               subroutine test()
   !
   ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   subroutine test(param)
     use global
     use IO
-    
     implicit none
+    character(len=2048)::filename
+    double precision::t(3)
     type(t_Param)::param
     type(t_CP2K_param)::cp2k_param
     msg(__LINE__), trim(param%input(1)%name)
     call IO_read_cp2k_restart_file(param%input(1)%name,cp2k_param)
-    
+    filename="molin.xyz"
+    call save_molecule(filename,cp2k_param%force_eval%subsys%coord%mol)
+    !msg(__LINE__), cp2k_param%force_eval%subsys%coord%mol%atoms(303)%q
+    t=(/1.4589747647858762   ,    0.85812309921962959 , 0.0/)
+    cp2k_param%force_eval%subsys%coord%mol%atoms(303)%q=&
+         cp2k_param%force_eval%subsys%coord%mol%atoms(303)%q+t
+    cp2k_param%force_eval%subsys%coord%mol%atoms(306)%q=&
+         cp2k_param%force_eval%subsys%coord%mol%atoms(306)%q+t
+    !msg(__LINE__), cp2k_param%force_eval%subsys%coord%mol%atoms(303)%q
+    filename="molout.xyz"
+    call save_molecule(filename,cp2k_param%force_eval%subsys%coord%mol)
     call IO_save(param%output(1)%name,cp2k_param)
 
   end subroutine test
@@ -54,6 +145,7 @@ contains
     type(t_Univers)::univ
     logical::chk_free_location
     character(len=32)::adding_type
+    character(len=2048)::filename
 
     param%calculation%system="essai"
 
@@ -116,7 +208,8 @@ contains
 
     
     call IO_write(param,univ,n)
-    call save_molecule(newmol)
+    filename="molecule.xyz"
+    call save_molecule(filename,newmol)
 
   end subroutine interpol
   ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -622,7 +715,6 @@ contains
     call IO_write(param,univ,n)
     
   end subroutine solvent
-
 
   ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !

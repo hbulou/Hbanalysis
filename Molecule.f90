@@ -4,7 +4,7 @@ module Molecule
   implicit none
 contains
 #define msg(x) print *,"### ",x,__FILE__," > "
-#define error(x) print *,"### ROOR ",x,__FILE__," > " 
+#define error(x) print *,"### ERROR ",x,__FILE__," > " 
   !  subroutine MOLECULE_add_atom(mol,elt,q)
   !  subroutine MOLECULE_add_to_cell(cell)
   !  subroutine MOLECULE_align(molref,center,axe,mol_align,pos_to_center,axe_to_align)
@@ -774,4 +774,79 @@ contains
     end do
   end subroutine MOLECULE_translate
 
+
+  ! --------------------------------------------------------------------------------------
+  !
+  !              read_multixyz()
+  !
+  ! --------------------------------------------------------------------------------------
+  function MOLECULE_read_multixyz(name) result(mol)
+    use global
+    use Atom
+    use Element
+    implicit none
+    character(len=2048)::name
+    integer::io
+    character (len=1024)::line
+    character (len=NCHARFIELD)::field(32)
+    integer::nfield,nline,nconf,natoms,i,iat
+    type(t_Molecule)::mol
+    type(t_Atom)::atm
+
+    
+    msg(__LINE__)," Starting read_multixyz() function ..."
+    msg(__LINE__)," Reading ",trim(name)
+    io=0
+    nline=0
+    nconf=0
+    open(unit=1,file=name,form='formatted')
+    do while (io==0)
+       read(1,'(A)',iostat=io) line
+       if(io.eq.-1) then
+          exit
+       else
+          nline=nline+1
+       end if
+       call line_parser(line,nfield,field)
+       if(nfield.eq.1) then
+          nconf=nconf+1
+          read(field(1),*) natoms
+       end if
+    end do
+    msg(__LINE__),nline," line(s) in ",trim(name)
+    msg(__LINE__),nconf," configuration(s) in ",trim(name)
+    msg(__LINE__),natoms," atom(s)/configuration in ",trim(name)
+    if(.not.((natoms+2)*nconf.eq.nline))    error(__LINE__),(natoms+2)*nconf,nline
+    rewind(1)
+    io=0
+    if(nconf.gt.1) then
+       i=0
+       do while (.not.(i.eq.((natoms+2)*(nconf-1))))
+          read(1,'(A)',iostat=io) line ; i=i+1
+       end do
+    end if
+    read(1,'(A)',iostat=io) line
+    read(1,'(A)',iostat=io) line
+    mol=MOLECULE_init()
+    atm=ATOM_new()
+    do iat=1,natoms
+       read(1,'(A)',iostat=io) line
+       call line_parser(line,nfield,field)
+       atm%elt=field(1)
+       atm%Zato=elt2Z(atm%elt)
+       read(field(2),*) atm%q(1)
+       read(field(3),*) atm%q(2)
+       read(field(4),*) atm%q(3)
+       atm%idx_molecule=-1
+       atm%n_bonds=0
+       call MOLECULE_add_atom(mol,atm)
+    end do
+       
+
+
+    close(1)
+    msg(__LINE__),"... end of read_multixyz()."
+  end function MOLECULE_read_multixyz
+
+  
 end module Molecule
