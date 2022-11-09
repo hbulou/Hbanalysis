@@ -3,6 +3,16 @@ module global
   
   double precision,parameter::a0=0.529177249
   integer,parameter::NCHARFIELD=256
+
+  ! ----------------------------------------------
+  type t_Param_Transformation_Strain
+     logical::status
+     double precision::eps(3,3)
+  end type t_Param_Transformation_Strain
+  ! ----------------------------------------------
+  type t_Param_Transformation
+     type(t_Param_Transformation_Strain)::strain
+  end type t_Param_Transformation
   ! ----------------------------------------------
   type t_Param_Calculation
      character(len=32)::run_type
@@ -55,6 +65,8 @@ module global
      character(len=32)::title
      character(len=8)::machine  ! jeanzay, hpc
      type(t_Param_Calculation)::calculation
+     integer::n_transformations
+     type(t_Param_Transformation),allocatable::transformation(:)
   end type t_Param
   !-----------------------------------------------
   type t_Atom

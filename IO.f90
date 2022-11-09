@@ -1457,7 +1457,7 @@ contains
     integer::io
     character (len=1024)::line
     character (len=NCHARFIELD)::field(32)
-    integer::nfield,i,j,k
+    integer::nfield,i,j,k,nline
     logical::bool_input,bool_output,bool_machine
 
     param%n_inputs=0
@@ -1465,13 +1465,15 @@ contains
     bool_input=.FALSE.
     bool_output=.FALSE.
     bool_machine=.FALSE.
-
     !
     ! cette partie permet de compter le nombre de blocs d'input & d'output
     !
     
     io=0
     open(unit=1,file=param%filename,form='formatted')
+    !
+    ! old part
+    !
     do while(io.eq.0)
        read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
        if(nfield.gt.0) then
@@ -1491,6 +1493,67 @@ contains
           if((bool_machine).and.(trim(field(1)).eq."&name"))     param%machine=field(2)
        end if
     end do
+
+    !
+    ! new part
+    !
+    rewind(1)
+    io=0
+    param%n_transformations=0
+    do while(io.eq.0)
+       read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+       if(nfield.gt.0) then
+          !
+          ! first, we count the number of transforamtions
+          !
+          if(field(1).eq."&transformation") param%n_transformations=param%n_transformations+1
+       end if
+    end do
+    msg(__LINE__),param%n_transformations," transformation(s)"
+    !
+    ! then we allocate param%transformation(:)
+    !
+    allocate(param%transformation(param%n_transformations))
+    do i=1,param%n_transformations
+       param%transformation(i)%strain%status=.FALSE.
+    end do
+    rewind(1)
+    io=0
+    i=0
+    do while(io.eq.0)
+       read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+       if(nfield.gt.0) then
+          if(field(1).eq."&transformation") then
+             i=i+1
+             read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+             if(field(1).eq."&strain") then
+                if((nfield.gt.1).and.((field(2).eq."ON").or.(field(2).eq."TRUE"))) then
+                   param%transformation(i)%strain%status=.TRUE.
+                   do while(.not.(field(1).eq."&end_strain"))
+                      read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+                      if(field(1).eq."&eps") then
+                         do j=1,3
+                            read(1,'(A)',iostat=io) line ; call line_parser(line,nfield,field);
+                            do k=1,3
+                               read(field(k),*) param%transformation(i)%strain%eps(j,k)
+                            end do
+                         end do
+                      end if
+                   end do
+                end if
+             end if
+          end if
+       end if
+    end do
+    do i=1,param%n_transformations
+       msg(__LINE__), "Transformation ",i,": strain->",param%transformation(i)%strain%status
+       if(param%transformation(i)%strain%status) msg(__LINE__), param%transformation(i)%strain%eps
+    end do
+
+    !
+    !
+    !
+
 
     allocate(param%input(param%n_inputs))
     allocate(param%output(param%n_outputs))

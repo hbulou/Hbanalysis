@@ -40,12 +40,6 @@ contains
     call IO_read_cp2k_restart_file(param%input(1)%name,cp2k_param)
 
 
-    ! eps = transpose(reshape((/ 1, 2, 3, 4, 5, 6, 7, 8, 9 /), shape(eps)))
-    ! 1 2 3
-    ! 4 5 6
-    ! 7 8 9
-    
-    eps = transpose(reshape((/ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.1 /), shape(eps)))
 
     !
     ! 
@@ -57,26 +51,45 @@ contains
     filename="molin.xyz"
     call save_molecule(filename,cp2k_param%force_eval%subsys%coord%mol)
 
-    do iat=1,cp2k_param%force_eval%subsys%coord%mol%n_atoms
-       if(.not.(cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%elt.eq."Ti")) then
-          r=ATOM_rij(cp2k_param%force_eval%subsys%coord%mol%atoms(168),&
-               cp2k_param%force_eval%subsys%coord%mol%atoms(iat))
-          q=cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%q
-          do j=1,3
-             do k=1,3
-                q(j)=q(j)+eps(j,k)*r(k)
-             end do
-          end do
-          msg(__LINE__),cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%elt,r
-          msg(__LINE__),cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%q
-          cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%q=q
-          r=ATOM_rij(cp2k_param%force_eval%subsys%coord%mol%atoms(168),&
-               cp2k_param%force_eval%subsys%coord%mol%atoms(iat))
 
-          msg(__LINE__),cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%q
-          msg(__LINE__),cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%elt,r
+    
+    ! eps = transpose(reshape((/ 1, 2, 3, 4, 5, 6, 7, 8, 9 /), shape(eps)))
+    ! 1 2 3
+    ! 4 5 6
+    ! 7 8 9
+    do i=1,param%n_transformations
+       !eps = transpose(reshape((/ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.1 /), shape(eps)))
+       !eps = transpose(reshape(param%transformation(i)%strain%eps, shape(eps)))
+       if(param%transformation(i)%strain%status) then
+          
+          eps=param%transformation(i)%strain%eps
+          do iat=1,cp2k_param%force_eval%subsys%coord%mol%n_atoms
+             if(.not.(cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%elt.eq."Ti")) then
+                r=ATOM_rij(cp2k_param%force_eval%subsys%coord%mol%atoms(168),&
+                     cp2k_param%force_eval%subsys%coord%mol%atoms(iat))
+                q=cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%q
+                do j=1,3
+                   do k=1,3
+                      q(j)=q(j)+eps(j,k)*r(k)
+                   end do
+                end do
+                msg(__LINE__),cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%elt,r
+                msg(__LINE__),cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%q
+                cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%q=q
+                r=ATOM_rij(cp2k_param%force_eval%subsys%coord%mol%atoms(168),&
+                     cp2k_param%force_eval%subsys%coord%mol%atoms(iat))
+                
+                msg(__LINE__),cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%q
+                msg(__LINE__),cp2k_param%force_eval%subsys%coord%mol%atoms(iat)%elt,r
+             end if
+          end do
+          msg(__LINE__),"Strain Transformation -> ",eps
        end if
+       msg(__LINE__),param%transformation(i)%strain%status
+       msg(__LINE__),param%transformation(i)%strain%eps
     end do
+    
+
     call CP2K_constraint_copy(cp2k_param%motion%constraint,TMPconstraint)
     call CP2K_free_constraint(cp2k_param%motion%constraint)
     

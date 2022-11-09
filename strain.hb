@@ -11,6 +11,15 @@
 &type   xyz
 &end_input
 
+&transformation
+  &strain TRUE
+  &eps
+  0.0 0.0 0.0
+  0.0 0.0 0.0
+  0.0 0.0 0.01
+  &end_strain
+&end_transformation
+
 
 &output 
 &name   test.in
